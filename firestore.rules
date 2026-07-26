@@ -1,0 +1,104 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // photoURL is a client-resized JPEG data: URL (no Cloud Storage, see
+    // docs/architecture.md) — cap it well above what the resizer produces
+    // (~5-30KB) so a crafted direct API write can't stuff a huge payload in.
+    function hasValidPhoto() {
+      return !('photoURL' in request.resource.data) ||
+        request.resource.data.photoURL.size() < 300000;
+    }
+
+    // Users: the full profile (includes email) is only readable by its
+    // owner or an admin — never by other players. A user can create/update
+    // their own profile but cannot change their own role; only an admin can
+    // promote/demote. Anything other players/the UI need to display (name,
+    // photo, skill level) lives in the separate publicProfiles collection.
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.role == 'player' && hasValidPhoto();
+      allow update: if hasValidPhoto() &&
+        ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Public-safe subset of a profile (no email) — readable by anyone
+    // signed in, e.g. for fixtures, leaderboards, and registration lists.
+    match /publicProfiles/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId) && hasValidPhoto();
+    }
+
+    match /locations/{locationId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /courts/{courtId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /registrations/{registrationId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(request.resource.data.userId) && request.resource.data.status == 'pending';
+      allow update: if isAdmin() || (isOwner(resource.data.userId) && request.resource.data.status == 'withdrawn');
+      allow delete: if isAdmin();
+    }
+
+    // Matches: public read for live tournament screens; only admins write,
+    // and never once a match is locked.
+    match /matches/{matchId} {
+      allow read: if true;
+      allow write: if isAdmin() && resource.data.status != 'locked';
+      allow create: if isAdmin();
+    }
+
+    // Aggregates are maintained exclusively by Cloud Functions (Admin SDK,
+    // which bypasses these rules) — no client ever writes them directly.
+    match /tournamentStats/{statId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /playerStats/{userId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /headToHead/{pairId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Created by Cloud Functions; the owner may only mark their own read.
+    match /notifications/{userId}/items/{notificationId} {
+      allow read, update: if isOwner(userId);
+    }
+
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
