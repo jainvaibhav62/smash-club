@@ -15,6 +15,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Your global ~/.gitignore excludes package-lock.json by default, but this
+# project's CI (npm ci, actions/setup-node cache) needs it committed.
+!package-lock.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
