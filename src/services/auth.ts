@@ -28,7 +28,6 @@ export async function signUpWithEmail(
   skillLevel: UserProfile['skillLevel'],
 ): Promise<void> {
   const { user } = await createUserWithEmailAndPassword(auth, email, password)
-  await sendEmailVerification(user)
 
   // Create profile with email verified flag
   const newProfile = {
@@ -44,6 +43,12 @@ export async function signUpWithEmail(
   }
   await setDoc(doc(db, 'users', user.uid), newProfile)
   await setDoc(doc(db, 'publicProfiles', user.uid), toPublicProfile({ displayName, photoURL: '', skillLevel }))
+
+  // Send verification email
+  await sendEmailVerification(user)
+
+  // Sign out so user can't access the app until they verify email
+  await firebaseSignOut(auth)
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<{ profile: UserProfile; isNew: boolean }> {

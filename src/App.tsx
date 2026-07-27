@@ -8,6 +8,7 @@ import { ProfilePage } from './pages/Profile'
 import { SignUpPage } from './pages/SignUp'
 import { SignInPage } from './pages/SignIn'
 import { ForgotPasswordPage } from './pages/ForgotPassword'
+import { VerifyEmailPage } from './pages/VerifyEmail'
 import { TournamentsPage } from './pages/Tournaments'
 import { LeaderboardPage } from './pages/Leaderboard'
 import { AdminLocationsPage } from './pages/admin/Locations'
@@ -26,6 +27,7 @@ function App() {
               <Route path="/signup" element={<SignUpPage />} />
               <Route path="/signin" element={<SignInPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route
                 path="/profile"
                 element={

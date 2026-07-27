@@ -11,7 +11,6 @@ export function SignUpPage() {
   const [skillLevel, setSkillLevel] = useState<SkillLevel>('beginner')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [verificationSent, setVerificationSent] = useState(false)
 
   async function handleGoogleSignUp() {
     setError('')
@@ -42,7 +41,8 @@ export function SignUpPage() {
       }
 
       await signUpWithEmail(email, password, displayName, skillLevel)
-      setVerificationSent(true)
+      // Redirect to verification page with email in state
+      navigate('/verify-email', { state: { email } })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Sign up failed'
       if (errorMessage.includes('email-already-in-use')) {
@@ -57,37 +57,6 @@ export function SignUpPage() {
     }
   }
 
-  if (verificationSent) {
-    return (
-      <div className="mx-auto max-w-md rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-4 text-center">
-          <div className="mb-2 text-4xl">✉️</div>
-          <h2 className="mb-2 text-xl font-bold text-slate-900 dark:text-slate-100">
-            Verify your email
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-300">
-            We've sent a verification email to <strong>{email}</strong>
-          </p>
-        </div>
-
-        <div className="space-y-3 rounded-md bg-blue-50 p-3 text-sm dark:bg-blue-950/30">
-          <p className="text-blue-700 dark:text-blue-300">
-            1️⃣ Check your inbox for an email from us
-          </p>
-          <p className="text-blue-700 dark:text-blue-300">
-            2️⃣ Click the verification link
-          </p>
-          <p className="text-blue-700 dark:text-blue-300">
-            3️⃣ You'll be logged in and ready to join tournaments!
-          </p>
-        </div>
-
-        <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
-          Didn't get an email? Check your spam folder or try signing up again.
-        </p>
-      </div>
-    )
-  }
 
   return (
     <div className="mx-auto max-w-md rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">

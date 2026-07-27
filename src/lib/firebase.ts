@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import { initializeFirestore } from 'firebase/firestore'
+import { getFunctions } from 'firebase/functions'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -17,4 +18,5 @@ export const auth = getAuth(app)
 // are omitted via `undefined` rather than left out of the object entirely;
 // Firestore rejects explicit `undefined` values unless this is set.
 export const db = initializeFirestore(app, { ignoreUndefinedProperties: true })
+export const functions = getFunctions(app)
 export const googleProvider = new GoogleAuthProvider()
