@@ -112,7 +112,7 @@ export function TournamentsPage() {
           const registration = registrations.find((r) => r.tournamentId === tournament.id)
           const isActive = registration?.status === 'confirmed' || registration?.status === 'waitlisted'
           const phase = getRegistrationPhase(tournament)
-          const opensAt = tournament.registrationOpensAt.toDate()
+          const opensAt = tournament.registrationOpensAt?.toDate()
 
           return (
             <li
@@ -167,7 +167,7 @@ export function TournamentsPage() {
                   ))}
               </div>
 
-              {phase === 'not_open' && (
+              {phase === 'not_open' && opensAt && (
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                   {NOT_OPEN_MESSAGE(opensAt)}
                 </p>

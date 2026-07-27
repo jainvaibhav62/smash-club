@@ -33,6 +33,7 @@ export interface CreateTournamentInput {
 export type RegistrationPhase = 'not_open' | 'open' | 'closed'
 
 export function getRegistrationPhase(tournament: Tournament, now = new Date()): RegistrationPhase {
+  if (!tournament.registrationOpensAt || !tournament.registrationClosesAt) return 'open'
   if (now < tournament.registrationOpensAt.toDate()) return 'not_open'
   if (now > tournament.registrationClosesAt.toDate()) return 'closed'
   return 'open'

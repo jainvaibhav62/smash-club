@@ -59,8 +59,8 @@ export interface Tournament {
   locationId: string
   courtIds: string[]
   status: TournamentStatus
-  registrationOpensAt: Timestamp
-  registrationClosesAt: Timestamp
+  registrationOpensAt?: Timestamp
+  registrationClosesAt?: Timestamp
   champion?: string
   runnerUp?: string
   createdBy: string
