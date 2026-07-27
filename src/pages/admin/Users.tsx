@@ -25,7 +25,6 @@ export function AdminUsersPage() {
       const querySnapshot = await getDocs(collection(db, 'users'))
       const userList = querySnapshot.docs
         .map((doc) => ({ uid: doc.id, ...doc.data() } as UserProfile))
-        .filter((user) => user.emailVerified === true)
         .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0))
       setUsers(userList)
     } catch (err) {
@@ -93,6 +92,9 @@ export function AdminUsersPage() {
                 Role
               </th>
               <th className="px-4 py-3 text-left font-medium text-slate-700 dark:text-slate-300">
+                Verified
+              </th>
+              <th className="px-4 py-3 text-left font-medium text-slate-700 dark:text-slate-300">
                 Joined
               </th>
               <th className="px-4 py-3 text-right font-medium text-slate-700 dark:text-slate-300">
@@ -120,6 +122,17 @@ export function AdminUsersPage() {
                   <span className="inline-block rounded-full bg-slate-100 px-2 py-1 text-xs capitalize dark:bg-slate-800">
                     {user.role}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                  {user.emailVerified ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      ✓ Verified
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                      ✗ Pending
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                   {user.createdAt?.toDate().toLocaleDateString() ?? '—'}
