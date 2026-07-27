@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
+import { useAuth } from '../../context/AuthContext'
 import { deleteUserDataDirectly } from '../../services/userManagement'
 import type { UserProfile } from '../../types'
 
 export function AdminUsersPage() {
+  const { profile } = useAuth()
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -121,8 +123,9 @@ export function AdminUsersPage() {
                 <td className="px-4 py-3 text-right">
                   <button
                     onClick={() => handleDeleteUser(user.uid, user.displayName)}
-                    disabled={deleting === user.uid}
-                    className="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    disabled={deleting === user.uid || user.uid === profile?.uid}
+                    title={user.uid === profile?.uid ? 'Cannot delete yourself' : 'Delete user'}
+                    className="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {deleting === user.uid ? 'Deleting…' : 'Delete'}
                   </button>
