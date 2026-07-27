@@ -155,34 +155,52 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
   }
 });
 
-// Resend verification email to a user (admin only)
-exports.resendVerificationEmail = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in')
-  }
+// Resend verification email to a user (admin only) - HTTP function with CORS
+exports.resendVerificationEmail = functions.https.onRequest(async (req, res) => {
+  // Enable CORS
+  res.set('Access-Control-Allow-Origin', '*')
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
-  const { uid } = data
-  if (!uid) {
-    throw new functions.https.HttpsError('invalid-argument', 'User UID is required')
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('')
+    return
   }
 
   try {
+    const uid = req.body?.uid
+    const token = req.headers.authorization?.replace('Bearer ', '')
+
+    if (!uid) {
+      res.status(400).json({ error: 'User UID is required' })
+      return
+    }
+
+    if (!token) {
+      res.status(401).json({ error: 'Must be logged in' })
+      return
+    }
+
+    // Verify token
+    const decodedToken = await admin.auth().verifyIdToken(token)
+    const requesterUid = decodedToken.uid
+
     // Check if requester is admin
-    const requesterDoc = await admin.firestore().collection('users').doc(context.auth.uid).get()
+    const requesterDoc = await admin.firestore().collection('users').doc(requesterUid).get()
     if (requesterDoc.data()?.role !== 'admin') {
-      throw new functions.https.HttpsError('permission-denied', 'Only admins can resend verification emails')
+      res.status(403).json({ error: 'Only admins can resend verification emails' })
+      return
     }
 
-    // Get the user's email and profile
+    // Get the user's email
     const user = await admin.auth().getUser(uid)
-    const profileDoc = await admin.firestore().collection('users').doc(uid).get()
-    const profile = profileDoc.data()
-
     if (!user) {
-      throw new functions.https.HttpsError('not-found', 'User not found')
+      res.status(404).json({ error: 'User not found' })
+      return
     }
 
-    // Generate a new 6-digit code (same as initial signup)
+    // Generate a new 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString()
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
@@ -219,16 +237,13 @@ exports.resendVerificationEmail = functions.https.onCall(async (data, context) =
       console.log(`Verification code for ${user.email}: ${code}`)
     }
 
-    return {
+    res.status(200).json({
       success: true,
       message: `Verification email resent to ${user.email}`,
-    }
+    })
   } catch (error) {
     console.error('Error resending verification email:', error)
-    if (error.code) {
-      throw error
-    }
-    throw new functions.https.HttpsError('internal', `Failed to resend email: ${error.message}`)
+    res.status(500).json({ error: `Failed to resend email: ${error.message}` })
   }
 })
 
