@@ -115,10 +115,16 @@ export async function getAvailablePlayersForTournament(tournamentId: string): Pr
     listRegistrationsForTournament(tournamentId),
   ])
 
-  const registeredUserIds = new Set(registeredRegs.map((r) => r.userId))
+  // Only exclude users with active registrations (confirmed or waitlisted)
+  // Users who were removed or withdrawn can be re-registered
+  const activeUserIds = new Set(
+    registeredRegs
+      .filter((r) => r.status === 'confirmed' || r.status === 'waitlisted')
+      .map((r) => r.userId)
+  )
   const allUsers = allUsersSnap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 
-  return allUsers.filter((user) => !registeredUserIds.has(user.uid))
+  return allUsers.filter((user) => !activeUserIds.has(user.uid))
 }
 
 /** Bulk register users for a tournament (admin function) */

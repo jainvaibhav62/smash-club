@@ -70,7 +70,7 @@ service cloud.firestore {
     // signed-in user may do exactly that one transition and nothing else.
     match /registrations/{registrationId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(request.resource.data.userId) &&
+      allow create: if (isOwner(request.resource.data.userId) || isAdmin()) &&
         request.resource.data.status in ['confirmed', 'waitlisted'];
       allow update: if isAdmin() ||
         (isOwner(resource.data.userId) &&
