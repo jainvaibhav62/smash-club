@@ -156,72 +156,75 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
 });
 
 // Resend verification email to a user (admin only)
-exports.resendVerificationEmail = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in')
-  }
-
-  const { uid } = data
-  if (!uid) {
-    throw new functions.https.HttpsError('invalid-argument', 'User UID is required')
-  }
-
-  try {
-    // Check if requester is admin
-    const requesterDoc = await admin.firestore().collection('users').doc(context.auth.uid).get()
-    if (requesterDoc.data()?.role !== 'admin') {
-      throw new functions.https.HttpsError('permission-denied', 'Only admins can resend verification emails')
+exports.resendVerificationEmail = functions.https.onCall(
+  { cors: ['https://jainvaibhav62.github.io', 'localhost:5173', 'localhost:5174'] },
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be logged in')
     }
 
-    // Get the user to resend email to
-    const user = await admin.auth().getUser(uid)
-
-    // Generate a verification link
-    const link = await admin.auth().generateEmailVerificationLink(user.email)
-
-    console.log(`Verification link generated for ${user.email}`)
-
-    // Send email with verification link
-    const mailOptions = {
-      from: process.env.GMAIL_USER,
-      to: user.email,
-      subject: '🏸 Smash Club - Verify Your Email',
-      html: `
-        <h2>Welcome to Smash Club!</h2>
-        <p>Click the link below to verify your email:</p>
-        <p>
-          <a href="${link}" style="background-color: #10b981; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">
-            Verify Email
-          </a>
-        </p>
-        <p>Or copy this link if the button doesn't work:</p>
-        <p><code>${link}</code></p>
-        <p>If you didn't sign up for Smash Club, ignore this email.</p>
-      `,
+    const { uid } = data
+    if (!uid) {
+      throw new functions.https.HttpsError('invalid-argument', 'User UID is required')
     }
 
-    // Try to send email (may fail if Gmail credentials not set up)
     try {
-      await transporter.sendMail(mailOptions)
-      console.log(`Verification email sent to ${user.email}`)
-    } catch (emailError) {
-      console.warn(`Email sending failed (this is OK during development): ${emailError.message}`)
-      // For development, log the link to console instead
-      console.log(`Verification link for ${user.email}: ${link}`)
-    }
+      // Check if requester is admin
+      const requesterDoc = await admin.firestore().collection('users').doc(context.auth.uid).get()
+      if (requesterDoc.data()?.role !== 'admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins can resend verification emails')
+      }
 
-    return {
-      success: true,
-      message: `Verification email resent to ${user.email}`,
+      // Get the user to resend email to
+      const user = await admin.auth().getUser(uid)
+
+      // Generate a verification link
+      const link = await admin.auth().generateEmailVerificationLink(user.email)
+
+      console.log(`Verification link generated for ${user.email}`)
+
+      // Send email with verification link
+      const mailOptions = {
+        from: process.env.GMAIL_USER,
+        to: user.email,
+        subject: '🏸 Smash Club - Verify Your Email',
+        html: `
+          <h2>Welcome to Smash Club!</h2>
+          <p>Click the link below to verify your email:</p>
+          <p>
+            <a href="${link}" style="background-color: #10b981; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">
+              Verify Email
+            </a>
+          </p>
+          <p>Or copy this link if the button doesn't work:</p>
+          <p><code>${link}</code></p>
+          <p>If you didn't sign up for Smash Club, ignore this email.</p>
+        `,
+      }
+
+      // Try to send email (may fail if Gmail credentials not set up)
+      try {
+        await transporter.sendMail(mailOptions)
+        console.log(`Verification email sent to ${user.email}`)
+      } catch (emailError) {
+        console.warn(`Email sending failed (this is OK during development): ${emailError.message}`)
+        // For development, log the link to console instead
+        console.log(`Verification link for ${user.email}: ${link}`)
+      }
+
+      return {
+        success: true,
+        message: `Verification email resent to ${user.email}`,
+      }
+    } catch (error) {
+      console.error('Error resending verification email:', error)
+      if (error.code) {
+        throw error
+      }
+      throw new functions.https.HttpsError('internal', `Failed to resend email: ${error.message}`)
     }
-  } catch (error) {
-    console.error('Error resending verification email:', error)
-    if (error.code) {
-      throw error
-    }
-    throw new functions.https.HttpsError('internal', `Failed to resend email: ${error.message}`)
   }
-})
+)
 
 // Verify the code
 exports.verifyCode = functions.https.onCall(async (data, context) => {
