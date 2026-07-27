@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { converter } from './firestore'
-import type { Registration } from '../types'
+import type { Registration, UserProfile } from '../types'
 
 const registrationsRef = collection(db, 'registrations').withConverter(converter<Registration>())
 
@@ -106,4 +106,38 @@ async function promoteNextWaitlisted(tournamentId: string) {
   if (!next) return
 
   await updateDoc(doc(db, 'registrations', next.id), { status: 'confirmed' })
+}
+
+/** Get all users not yet registered for a tournament (for admin manual registration) */
+export async function getAvailablePlayersForTournament(tournamentId: string): Promise<UserProfile[]> {
+  const [allUsersSnap, registeredRegs] = await Promise.all([
+    getDocs(collection(db, 'users')),
+    listRegistrationsForTournament(tournamentId),
+  ])
+
+  const registeredUserIds = new Set(registeredRegs.map((r) => r.userId))
+  const allUsers = allUsersSnap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
+
+  return allUsers.filter((user) => !registeredUserIds.has(user.uid))
+}
+
+/** Bulk register users for a tournament (admin function) */
+export async function bulkRegisterUsersForTournament(
+  tournamentId: string,
+  userIds: string[],
+): Promise<{ registered: number; failed: number }> {
+  let registered = 0
+  let failed = 0
+
+  for (const userId of userIds) {
+    try {
+      await registerForTournament(tournamentId, userId)
+      registered++
+    } catch (err) {
+      console.error(`Failed to register user ${userId}:`, err)
+      failed++
+    }
+  }
+
+  return { registered, failed }
 }

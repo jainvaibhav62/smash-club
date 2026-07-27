@@ -8,7 +8,7 @@ import { fetchPublicProfiles, fetchUserProfile } from '../../services/auth'
 import { generateFixtures, listMatchesForTournament, recordMatchScore } from '../../services/fixtures'
 import { computeTournamentLeaderboard } from '../../services/leaderboard'
 import { getCourtsByIds } from '../../services/locations'
-import { countConfirmed, listRegistrationsForTournament, removeRegistration } from '../../services/registrations'
+import { countConfirmed, listRegistrationsForTournament, removeRegistration, getAvailablePlayersForTournament, bulkRegisterUsersForTournament } from '../../services/registrations'
 import { getTournament, setTournamentStatus } from '../../services/tournaments'
 import type { Court, Match, PublicProfile, Registration, Tournament, UserProfile } from '../../types'
 
@@ -26,16 +26,23 @@ export function AdminRegistrationsPage() {
   const [generating, setGenerating] = useState(false)
   const [fixtureError, setFixtureError] = useState('')
   const [publishingLeaderboard, setPublishingLeaderboard] = useState(false)
+  const [availablePlayers, setAvailablePlayers] = useState<UserProfile[]>([])
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set())
+  const [registering, setRegistering] = useState(false)
+  const [registrationMessage, setRegistrationMessage] = useState('')
 
   async function load() {
     if (!tournamentId) return
     setLoading(true)
-    const [t, regs] = await Promise.all([
+    const [t, regs, available] = await Promise.all([
       getTournament(tournamentId),
       listRegistrationsForTournament(tournamentId),
+      getAvailablePlayersForTournament(tournamentId),
     ])
     setTournament(t)
     setRegistrations(regs)
+    setAvailablePlayers(available)
+    setSelectedPlayerIds(new Set())
 
     const profiles = await Promise.all(regs.map((r) => fetchUserProfile(r.userId)))
     const map: Record<string, UserProfile> = {}
@@ -110,6 +117,36 @@ export function AdminRegistrationsPage() {
     }
   }
 
+  async function handleBulkRegister() {
+    if (!tournamentId || selectedPlayerIds.size === 0) return
+    if (!window.confirm(`Register ${selectedPlayerIds.size} player(s) for this tournament?`)) return
+
+    setRegistering(true)
+    try {
+      const { registered, failed } = await bulkRegisterUsersForTournament(
+        tournamentId,
+        Array.from(selectedPlayerIds),
+      )
+      setRegistrationMessage(`✓ Registered ${registered} player(s)${failed > 0 ? ` (${failed} failed)` : ''}`)
+      await load()
+      setTimeout(() => setRegistrationMessage(''), 3000)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to register players.')
+    } finally {
+      setRegistering(false)
+    }
+  }
+
+  function togglePlayerSelection(userId: string) {
+    const newSelected = new Set(selectedPlayerIds)
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId)
+    } else {
+      newSelected.add(userId)
+    }
+    setSelectedPlayerIds(newSelected)
+  }
+
   if (loading) return <p className="text-slate-500 dark:text-slate-400">Loading…</p>
   if (!tournament) return <p className="text-slate-500 dark:text-slate-400">Tournament not found.</p>
 
@@ -173,6 +210,54 @@ export function AdminRegistrationsPage() {
           <ul className="space-y-2">
             {waitlisted.map((r, i) => renderPlayerRow(r, `#${i + 1}`))}
           </ul>
+        </div>
+      )}
+
+      {availablePlayers.length > 0 && (
+        <div className="space-y-3 rounded-lg border-2 border-blue-300 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-950/20">
+          <div>
+            <h2 className="mb-1 text-lg font-semibold text-blue-900 dark:text-blue-100">
+              Manual registration
+            </h2>
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              {availablePlayers.length} player{availablePlayers.length !== 1 ? 's' : ''} not yet registered. Select to add them to this tournament.
+            </p>
+          </div>
+
+          {registrationMessage && (
+            <p className="rounded-md bg-green-100 p-2 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-300">
+              {registrationMessage}
+            </p>
+          )}
+
+          <ul className="space-y-2">
+            {availablePlayers.map((player) => (
+              <li
+                key={player.uid}
+                className="flex items-center gap-3 rounded-lg border border-blue-200 bg-white p-3 dark:border-blue-800 dark:bg-slate-900"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedPlayerIds.has(player.uid)}
+                  onChange={() => togglePlayerSelection(player.uid)}
+                  className="h-4 w-4 rounded"
+                />
+                <Avatar src={player.photoURL} name={player.displayName} size={32} />
+                <div className="flex-1">
+                  <p className="font-medium text-slate-900 dark:text-slate-100">{player.displayName}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{player.skillLevel}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            onClick={handleBulkRegister}
+            disabled={selectedPlayerIds.size === 0 || registering}
+            className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {registering ? 'Registering…' : `Register ${selectedPlayerIds.size} player${selectedPlayerIds.size !== 1 ? 's' : ''}`}
+          </button>
         </div>
       )}
 
