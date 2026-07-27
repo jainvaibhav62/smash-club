@@ -1,9 +1,41 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { PlayerStatsCard } from '../components/PlayerStatsCard'
+import { LandingPage } from './Landing'
+import { computePlayerStats, computeRecentMatches, computeTopRivals, listAllCompletedMatches } from '../services/leaderboard'
+import { fetchPublicProfiles } from '../services/auth'
+import type { LeaderboardRow, PublicProfile, RecentMatch, TopRival } from '../types'
 
 export function HomePage() {
   const { profile, isAdmin } = useAuth()
-  if (!profile) return null
+  const [stats, setStats] = useState<LeaderboardRow | null>(null)
+  const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([])
+  const [topRivals, setTopRivals] = useState<TopRival[]>([])
+  const [profiles, setProfiles] = useState<Record<string, PublicProfile>>({})
+  const [loadingStats, setLoadingStats] = useState(true)
+
+  useEffect(() => {
+    if (!profile) return
+    async function load() {
+      setLoadingStats(true)
+      const matches = await listAllCompletedMatches()
+      const playerStats = computePlayerStats(profile!.uid, matches)
+      const recent = computeRecentMatches(profile!.uid, matches, 5)
+      const rivals = computeTopRivals(profile!.uid, matches, 3)
+
+      setStats(playerStats)
+      setRecentMatches(recent)
+      setTopRivals(rivals)
+
+      const rivalIds = rivals.map((r) => r.userId)
+      setProfiles(await fetchPublicProfiles(rivalIds))
+      setLoadingStats(false)
+    }
+    load()
+  }, [profile?.uid])
+
+  if (!profile) return <LandingPage />
 
   return (
     <div className="space-y-6">
@@ -15,6 +47,15 @@ export function HomePage() {
           {isAdmin ? 'Manage locations, tournaments, and registrations.' : 'Find and join upcoming tournaments.'}
         </p>
       </div>
+
+      {stats && !loadingStats && (
+        <PlayerStatsCard
+          stats={stats}
+          recentMatches={recentMatches}
+          topRivals={topRivals}
+          profiles={profiles}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Link

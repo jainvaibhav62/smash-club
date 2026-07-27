@@ -119,8 +119,102 @@ export function computeAllTimeLeaderboard(matches: Match[]): LeaderboardRow[] {
   return rows.sort((a, b) => b.wins - a.wins || b.winPct - a.winPct || b.pointDiff - a.pointDiff)
 }
 
+/** Overall stats for one player across all completed matches. */
+export function computePlayerStats(userId: string, matches: Match[]): LeaderboardRow {
+  const rows = foldMatches([userId], matches)
+  return rows[userId] || emptyRow(userId)
+}
+
+/** Recent matches for a player, sorted newest first. */
+export function computeRecentMatches(
+  userId: string,
+  matches: Match[],
+  limit = 5,
+): import('../types').RecentMatch[] {
+  const completed = matches
+    .filter(
+      (m) =>
+        m.status === 'completed' &&
+        m.completedAt &&
+        (m.teamA.includes(userId) || m.teamB.includes(userId)),
+    )
+    .sort((a, b) => (b.completedAt?.toMillis() ?? 0) - (a.completedAt?.toMillis() ?? 0))
+    .slice(0, limit)
+
+  return completed.map((m) => {
+    const onTeamA = m.teamA.includes(userId)
+    const scoreFor = onTeamA ? (m.scoreA ?? 0) : (m.scoreB ?? 0)
+    const scoreAgainst = onTeamA ? (m.scoreB ?? 0) : (m.scoreA ?? 0)
+    const won = (onTeamA && m.winner === 'A') || (!onTeamA && m.winner === 'B')
+    const opponents = onTeamA ? m.teamB : m.teamA
+    return {
+      matchId: m.id,
+      opponentNames: opponents.join(' & '),
+      won,
+      scoreFor,
+      scoreAgainst,
+      completedAt: m.completedAt!,
+    }
+  })
+}
+
+/** Most-frequently-faced opponents with head-to-head record. */
+export function computeTopRivals(
+  userId: string,
+  matches: Match[],
+  limit = 3,
+): import('../types').TopRival[] {
+  const opponentStats: Record<string, { wins: number; losses: number }> = {}
+
+  for (const match of matches) {
+    if (match.status !== 'completed' || match.winner === null) continue
+    const onTeamA = match.teamA.includes(userId)
+    const onTeamB = match.teamB.includes(userId)
+    if (!onTeamA && !onTeamB) continue
+
+    const opponents = onTeamA ? match.teamB : match.teamA
+    const won = (onTeamA && match.winner === 'A') || (onTeamB && match.winner === 'B')
+
+    for (const opp of opponents) {
+      if (!opponentStats[opp]) opponentStats[opp] = { wins: 0, losses: 0 }
+      if (won) opponentStats[opp].wins++
+      else opponentStats[opp].losses++
+    }
+  }
+
+  const rivals = Object.entries(opponentStats)
+    .map(([oppId, stats]) => ({
+      userId: oppId,
+      displayName: '', // Will be filled in by component
+      headToHeadWins: stats.wins,
+      headToHeadLosses: stats.losses,
+    }))
+    .sort((a, b) => (b.headToHeadWins + b.headToHeadLosses) - (a.headToHeadWins + a.headToHeadLosses))
+    .slice(0, limit)
+
+  return rivals
+}
+
 export async function listAllCompletedMatches(): Promise<Match[]> {
   const matchesRef = collection(db, 'matches').withConverter(converter<Match>())
   const snapshot = await getDocs(query(matchesRef, where('status', '==', 'completed')))
   return snapshot.docs.map((d) => d.data())
+}
+
+/** Completed matches from published (completed status) tournaments only. */
+export async function listPublishedMatches(): Promise<Match[]> {
+  const matchesRef = collection(db, 'matches').withConverter(converter<Match>())
+  const tournamentsRef = collection(db, 'tournaments').withConverter(converter<import('../types').Tournament>())
+
+  const completedMatches = await getDocs(
+    query(matchesRef, where('status', '==', 'completed')),
+  )
+  const completedTournaments = await getDocs(
+    query(tournamentsRef, where('status', '==', 'completed')),
+  )
+
+  const publishedTournamentIds = new Set(completedTournaments.docs.map((d) => d.id))
+  return completedMatches.docs
+    .map((d) => d.data())
+    .filter((m) => publishedTournamentIds.has(m.tournamentId))
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { listLocations, listCourtsForLocation } from '../../services/locations'
-import { createTournament, listTournaments } from '../../services/tournaments'
+import { createTournament, deleteTournament, listTournaments } from '../../services/tournaments'
 import type { Court, Location, Tournament, TournamentType } from '../../types'
 
 export function AdminTournamentsPage() {
@@ -24,6 +24,7 @@ export function AdminTournamentsPage() {
   const [registrationOpensAt, setRegistrationOpensAt] = useState('')
   const [registrationClosesAt, setRegistrationClosesAt] = useState('')
   const [formError, setFormError] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -101,6 +102,28 @@ export function AdminTournamentsPage() {
     setSelectedCourtIds((prev) =>
       prev.includes(courtId) ? prev.filter((id) => id !== courtId) : [...prev, courtId],
     )
+  }
+
+  async function handleDelete(tournament: Tournament) {
+    if (
+      !window.confirm(
+        `Delete "${tournament.name}"?\n\n⚠️  This will remove all registrations and match data. This cannot be undone.`,
+      )
+    ) {
+      return
+    }
+    setDeletingId(tournament.id)
+    try {
+      const { deletedRegistrations, deletedMatches } = await deleteTournament(tournament.id)
+      await load()
+      alert(
+        `✓ Tournament deleted.\n${deletedRegistrations} registration(s) and ${deletedMatches} match(es) removed.`,
+      )
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete tournament.')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   if (loading) return <p className="text-slate-500 dark:text-slate-400">Loading…</p>
@@ -287,7 +310,7 @@ export function AdminTournamentsPage() {
           {tournaments.map((tournament) => (
             <li
               key={tournament.id}
-              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+              className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
             >
               <div>
                 <p className="font-medium text-slate-900 dark:text-slate-100">{tournament.name}</p>
@@ -295,12 +318,21 @@ export function AdminTournamentsPage() {
                   {tournament.status.replace('_', ' ')}
                 </p>
               </div>
-              <Link
-                to={`/admin/tournaments/${tournament.id}/registrations`}
-                className="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              >
-                Manage
-              </Link>
+              <div className="flex gap-2">
+                <Link
+                  to={`/admin/tournaments/${tournament.id}/registrations`}
+                  className="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  Manage
+                </Link>
+                <button
+                  onClick={() => handleDelete(tournament)}
+                  disabled={deletingId === tournament.id}
+                  className="rounded-md bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/30 dark:text-red-300"
+                >
+                  {deletingId === tournament.id ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
             </li>
           ))}
         </ul>

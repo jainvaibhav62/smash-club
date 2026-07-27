@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -9,6 +10,7 @@ import {
   serverTimestamp,
   Timestamp,
   updateDoc,
+  where,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { converter } from './firestore'
@@ -70,4 +72,27 @@ export async function createTournament(input: CreateTournamentInput) {
 
 export async function setTournamentStatus(id: string, status: TournamentStatus) {
   await updateDoc(doc(db, 'tournaments', id), { status })
+}
+
+/** Delete a tournament and all its associated registrations and matches.
+ * Returns { deletedRegistrations, deletedMatches } for confirmation display. */
+export async function deleteTournament(
+  id: string,
+): Promise<{ deletedRegistrations: number; deletedMatches: number }> {
+  const registrationsRef = collection(db, 'registrations')
+  const matchesRef = collection(db, 'matches')
+
+  const registrations = await getDocs(
+    query(registrationsRef, where('tournamentId', '==', id)),
+  )
+  const matches = await getDocs(query(matchesRef, where('tournamentId', '==', id)))
+
+  const regCount = registrations.size
+  const matchCount = matches.size
+
+  registrations.forEach((doc) => deleteDoc(doc.ref))
+  matches.forEach((doc) => deleteDoc(doc.ref))
+  await deleteDoc(doc(db, 'tournaments', id))
+
+  return { deletedRegistrations: regCount, deletedMatches: matchCount }
 }

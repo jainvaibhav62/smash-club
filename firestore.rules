@@ -37,10 +37,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Public-safe subset of a profile (no email) — readable by anyone
-    // signed in, e.g. for fixtures, leaderboards, and registration lists.
+    // Public-safe subset of a profile (no email) — world-readable for the
+    // public landing page to show leaderboard previews; writeablde by owner only.
     match /publicProfiles/{userId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isOwner(userId) && hasValidPhoto();
     }
 

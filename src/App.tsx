@@ -10,6 +10,7 @@ import { LeaderboardPage } from './pages/Leaderboard'
 import { AdminLocationsPage } from './pages/admin/Locations'
 import { AdminTournamentsPage } from './pages/admin/Tournaments'
 import { AdminRegistrationsPage } from './pages/admin/Registrations'
+import { AdminFixturesPrintPage } from './pages/admin/FixturesPrint'
 
 function App() {
   return (
@@ -18,14 +19,7 @@ function App() {
         <HashRouter>
           <Layout>
             <Routes>
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <HomePage />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/" element={<HomePage />} />
               <Route
                 path="/profile"
                 element={
@@ -71,6 +65,14 @@ function App() {
                 element={
                   <ProtectedRoute requireAdmin>
                     <AdminRegistrationsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/tournaments/:tournamentId/print"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <AdminFixturesPrintPage />
                   </ProtectedRoute>
                 }
               />

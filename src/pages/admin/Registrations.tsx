@@ -162,15 +162,27 @@ export function AdminRegistrationsPage() {
       )}
 
       <div className="space-y-3 border-t border-slate-200 pt-6 dark:border-slate-800">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Fixtures</h2>
-          <button
-            onClick={handleDisplayFixtures}
-            disabled={generating}
-            className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {generating ? 'Generating…' : matches.length > 0 ? 'Redo fixtures' : 'Display fixtures'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleDisplayFixtures}
+              disabled={generating}
+              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {generating ? 'Generating…' : matches.length > 0 ? 'Redo fixtures' : 'Display fixtures'}
+            </button>
+            {matches.length > 0 && (
+              <a
+                href={`#/admin/tournaments/${tournamentId}/print`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                ⬇ Download PDF
+              </a>
+            )}
+          </div>
         </div>
         {fixtureError && (
           <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">

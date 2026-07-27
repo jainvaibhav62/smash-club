@@ -15,7 +15,7 @@ export function NavBar() {
   const { theme, toggleTheme } = useTheme()
 
   return (
-    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur print:hidden dark:border-slate-800 dark:bg-slate-950/80">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-4">
           <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
@@ -71,12 +71,20 @@ export function NavBar() {
               </button>
             </>
           ) : (
-            <button
-              onClick={() => signIn()}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-            >
-              Sign in with Google
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => signIn()}
+                className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+              >
+                New Member? Sign Up
+              </button>
+              <button
+                onClick={() => signIn()}
+                className="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                Already a member? Log In
+              </button>
+            </div>
           )}
         </div>
       </div>

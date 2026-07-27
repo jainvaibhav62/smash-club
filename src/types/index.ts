@@ -176,3 +176,19 @@ export interface LeaderboardRow {
   pointDiff: number
   winPct: number
 }
+
+export interface RecentMatch {
+  matchId: string
+  opponentNames: string
+  won: boolean
+  scoreFor: number
+  scoreAgainst: number
+  completedAt: Timestamp
+}
+
+export interface TopRival {
+  userId: string
+  displayName: string
+  headToHeadWins: number
+  headToHeadLosses: number
+}

@@ -8,6 +8,8 @@ interface AuthContextValue {
   profile: UserProfile | null
   loading: boolean
   isAdmin: boolean
+  showOnboarding: boolean
+  dismissOnboarding: () => void
   signIn: () => Promise<void>
   signOutUser: () => Promise<void>
   refreshProfile: () => Promise<void>
@@ -19,15 +21,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthState(async (user) => {
       setFirebaseUser(user)
       if (user) {
-        const userProfile = await ensureUserProfile(user)
+        const { profile: userProfile, isNew } = await ensureUserProfile(user)
         setProfile(userProfile)
+        if (isNew) setShowOnboarding(true)
       } else {
         setProfile(null)
+        setShowOnboarding(false)
       }
       setLoading(false)
     })
@@ -36,13 +41,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function refreshProfile() {
     if (!firebaseUser) return
-    const userProfile = await ensureUserProfile(firebaseUser)
+    const { profile: userProfile } = await ensureUserProfile(firebaseUser)
     setProfile(userProfile)
   }
 
   async function signIn() {
-    const userProfile = await signInWithGoogle()
+    const { profile: userProfile, isNew } = await signInWithGoogle()
     setProfile(userProfile)
+    if (isNew) setShowOnboarding(true)
+  }
+
+  function dismissOnboarding() {
+    setShowOnboarding(false)
   }
 
   async function signOutUser() {
@@ -57,6 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         loading,
         isAdmin: profile?.role === 'admin',
+        showOnboarding,
+        dismissOnboarding,
         signIn,
         signOutUser,
         refreshProfile,

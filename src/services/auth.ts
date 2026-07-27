@@ -12,7 +12,7 @@ export function subscribeToAuthState(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback)
 }
 
-export async function signInWithGoogle(): Promise<UserProfile> {
+export async function signInWithGoogle(): Promise<{ profile: UserProfile; isNew: boolean }> {
   const { user } = await signInWithPopup(auth, googleProvider)
   return ensureUserProfile(user)
 }
@@ -33,12 +33,14 @@ function toPublicProfile(profile: {
   }
 }
 
-export async function ensureUserProfile(user: User): Promise<UserProfile> {
+export async function ensureUserProfile(
+  user: User,
+): Promise<{ profile: UserProfile; isNew: boolean }> {
   const ref = doc(db, 'users', user.uid)
   const snapshot = await getDoc(ref)
 
   if (snapshot.exists()) {
-    return { uid: snapshot.id, ...snapshot.data() } as UserProfile
+    return { profile: { uid: snapshot.id, ...snapshot.data() } as UserProfile, isNew: false }
   }
 
   const newProfile = {
@@ -55,7 +57,7 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
   await setDoc(doc(db, 'publicProfiles', user.uid), toPublicProfile(newProfile))
 
   const created = await getDoc(ref)
-  return { uid: created.id, ...created.data() } as UserProfile
+  return { profile: { uid: created.id, ...created.data() } as UserProfile, isNew: true }
 }
 
 // Full profile (includes email) — only the owner or an admin can read this
