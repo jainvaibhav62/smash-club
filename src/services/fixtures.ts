@@ -44,13 +44,15 @@ export function buildMatchPool(
     }
   } else {
     // Doubles: generate all possible team combinations
-    // Each unique pair plays every other unique pair
+    // Each unique pair plays every other unique pair, but no two players partner more than once
     const pairs: string[][] = []
     for (let i = 0; i < playerIds.length; i++) {
       for (let j = i + 1; j < playerIds.length; j++) {
         pairs.push([playerIds[i], playerIds[j]])
       }
     }
+
+    const usedPartners = new Map<string, Set<string>>() // track which players have partnered
 
     for (let i = 0; i < pairs.length; i++) {
       for (let j = i + 1; j < pairs.length; j++) {
@@ -59,10 +61,21 @@ export function buildMatchPool(
         // Make sure no player is in both teams
         const allPlayers = [...teamA, ...teamB]
         if (new Set(allPlayers).size === 4) {
-          const matchKey = `${pairKey(teamA[0], teamA[1])}|${pairKey(teamB[0], teamB[1])}`
+          // Check if teamA has already played together
+          const teamAKey = pairKey(teamA[0], teamA[1])
+          if (usedPartners.has(teamAKey)) continue
+
+          // Check if teamB has already played together
+          const teamBKey = pairKey(teamB[0], teamB[1])
+          if (usedPartners.has(teamBKey)) continue
+
+          const matchKey = `${teamAKey}|${teamBKey}`
           if (!playedMatches.has(matchKey)) {
             result.push({ teamA, teamB })
             playedMatches.add(matchKey)
+            // Mark these pairs as having played together
+            usedPartners.set(teamAKey, new Set([teamA[0], teamA[1]]))
+            usedPartners.set(teamBKey, new Set([teamB[0], teamB[1]]))
           }
         }
       }
@@ -171,21 +184,37 @@ export async function generateFixtures(
   return { matchCount: scheduled.length, roundCount }
 }
 
-/** Records or corrects a match's score. Works whether the match is being scored
+/** Records or corrects a match’s score. Works whether the match is being scored
  * for the first time or already completed (re-submitting overwrites), since the
  * spec calls for admins to be able to fix mistakes after the fact. */
 export async function recordMatchScore(matchId: string, scoreA: number, scoreB: number) {
   if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0) {
-    throw new Error('Scores must be non-negative whole numbers.')
+    throw new Error("Scores must be non-negative whole numbers.")
+  }
+  if (scoreA > 30 || scoreB > 30) {
+    throw new Error("Scores cannot be greater than 30.")
   }
   if (scoreA === scoreB) {
-    throw new Error('Scores can’t be tied — there must be a winner.')
+    throw new Error("Scores cannot be tied - there must be a winner.")
   }
-  await updateDoc(doc(db, 'matches', matchId), {
-    status: 'completed',
+  const winner = scoreA > scoreB ? "A" : "B"
+  await updateDoc(doc(db, "matches", matchId), {
+    status: "completed",
     scoreA,
     scoreB,
-    winner: scoreA > scoreB ? 'A' : 'B',
+    winner,
     completedAt: serverTimestamp(),
   })
+}
+
+/** Deletes all fixtures (matches) for a tournament */
+export async function deleteFixtures(tournamentId: string): Promise<void> {
+  const matches = await listMatchesForTournament(tournamentId)
+  if (matches.length === 0) return
+
+  const batch = writeBatch(db)
+  matches.forEach((m) => {
+    batch.delete(doc(db, "matches", m.id))
+  })
+  await batch.commit()
 }

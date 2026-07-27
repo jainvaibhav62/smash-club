@@ -5,7 +5,7 @@ import { Avatar } from '../../components/Avatar'
 import { FixturesList } from '../../components/FixturesList'
 import { TournamentStandings } from '../../components/TournamentStandings'
 import { fetchPublicProfiles, fetchUserProfile } from '../../services/auth'
-import { generateFixtures, listMatchesForTournament, recordMatchScore } from '../../services/fixtures'
+import { deleteFixtures, generateFixtures, listMatchesForTournament, recordMatchScore } from '../../services/fixtures'
 import { computeTournamentLeaderboard } from '../../services/leaderboard'
 import { getCourtsByIds } from '../../services/locations'
 import { countConfirmed, listRegistrationsForTournament, removeRegistration, getAvailablePlayersForTournament, bulkRegisterUsersForTournament } from '../../services/registrations'
@@ -93,6 +93,20 @@ export function AdminRegistrationsPage() {
       await load()
     } catch (err) {
       setFixtureError(err instanceof Error ? err.message : 'Failed to generate fixtures.')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handleDeleteFixtures() {
+    if (!tournamentId) return
+    if (!window.confirm('Delete all fixtures? This cannot be undone.')) return
+    setGenerating(true)
+    try {
+      await deleteFixtures(tournamentId)
+      await load()
+    } catch (err) {
+      setFixtureError(err instanceof Error ? err.message : 'Failed to delete fixtures.')
     } finally {
       setGenerating(false)
     }
@@ -264,7 +278,7 @@ export function AdminRegistrationsPage() {
       <div className="space-y-3 border-t border-slate-200 pt-6 dark:border-slate-800">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Fixtures</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={handleDisplayFixtures}
               disabled={generating || matches.some((m) => m.status === 'completed')}
@@ -274,14 +288,24 @@ export function AdminRegistrationsPage() {
               {generating ? 'Generating…' : matches.length > 0 ? 'Redo fixtures' : 'Display fixtures'}
             </button>
             {matches.length > 0 && (
-              <a
-                href={`#/admin/tournaments/${tournamentId}/print`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                ⬇ Download PDF
-              </a>
+              <>
+                <a
+                  href={`#/admin/tournaments/${tournamentId}/print`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  ⬇ Download PDF
+                </a>
+                <button
+                  onClick={handleDeleteFixtures}
+                  disabled={generating || matches.some((m) => m.status === 'completed')}
+                  title={matches.some((m) => m.status === 'completed') ? 'Cannot delete fixtures after scoring begins' : ''}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {generating ? 'Deleting...' : 'Delete fixtures'}
+                </button>
+              </>
             )}
           </div>
         </div>

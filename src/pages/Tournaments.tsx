@@ -173,12 +173,22 @@ export function TournamentsPage() {
                 </p>
               )}
 
-              <button
-                onClick={() => toggleFixtures(tournament)}
-                className="mt-3 text-sm font-medium text-emerald-600 hover:underline dark:text-emerald-400"
-              >
-                {expandedFixtures === tournament.id ? 'Hide fixtures' : 'View fixtures'}
-              </button>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <button
+                  onClick={() => toggleFixtures(tournament)}
+                  className="text-sm font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+                >
+                  {expandedFixtures === tournament.id ? 'Hide fixtures' : 'View fixtures'}
+                </button>
+                {tournament.status === 'completed' && (
+                  <button
+                    onClick={() => toggleFixtures(tournament)}
+                    className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    View Tournament Leaderboard
+                  </button>
+                )}
+              </div>
 
               {expandedFixtures === tournament.id && (
                 <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800">
