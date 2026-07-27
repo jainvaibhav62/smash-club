@@ -29,6 +29,9 @@ export function NavBar() {
               <NavLink to="/tournaments" className={linkClass}>
                 Tournaments
               </NavLink>
+              <NavLink to="/leaderboard" className={linkClass}>
+                Leaderboard
+              </NavLink>
               {isAdmin && (
                 <>
                   <NavLink to="/admin/locations" className={linkClass}>

@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar } from '../../components/Avatar'
 import { FixturesList } from '../../components/FixturesList'
+import { TournamentStandings } from '../../components/TournamentStandings'
 import { fetchPublicProfiles, fetchUserProfile } from '../../services/auth'
-import { generateFixtures, listMatchesForTournament } from '../../services/fixtures'
+import { generateFixtures, listMatchesForTournament, recordMatchScore } from '../../services/fixtures'
+import { computeTournamentLeaderboard } from '../../services/leaderboard'
 import { getCourtsByIds } from '../../services/locations'
 import { countConfirmed, listRegistrationsForTournament, removeRegistration } from '../../services/registrations'
 import { getTournament } from '../../services/tournaments'
@@ -49,7 +51,12 @@ export function AdminRegistrationsPage() {
       ])
       setCourts(courtList)
       setMatches(matchList)
-      const involvedIds = matchList.flatMap((m) => [...m.teamA, ...m.teamB])
+      // Union with confirmed registrants, not just match participants, so
+      // standings show real names for anyone who hasn't played yet.
+      const involvedIds = [
+        ...matchList.flatMap((m) => [...m.teamA, ...m.teamB]),
+        ...regs.filter((r) => r.status === 'confirmed').map((r) => r.userId),
+      ]
       setMatchProfiles(await fetchPublicProfiles(involvedIds))
     }
 
@@ -81,6 +88,11 @@ export function AdminRegistrationsPage() {
     } finally {
       setGenerating(false)
     }
+  }
+
+  async function handleSubmitScore(matchId: string, scoreA: number, scoreB: number) {
+    await recordMatchScore(matchId, scoreA, scoreB)
+    await load()
   }
 
   if (loading) return <p className="text-slate-500 dark:text-slate-400">Loading…</p>
@@ -165,8 +177,25 @@ export function AdminRegistrationsPage() {
             {fixtureError}
           </p>
         )}
-        <FixturesList matches={matches} courts={courts} profiles={matchProfiles} />
+        <FixturesList
+          matches={matches}
+          courts={courts}
+          profiles={matchProfiles}
+          editable
+          pointsTarget={tournament.pointsTarget}
+          onSubmitScore={handleSubmitScore}
+        />
       </div>
+
+      {matches.length > 0 && (
+        <div className="space-y-3 border-t border-slate-200 pt-6 dark:border-slate-800">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Standings</h2>
+          <TournamentStandings
+            rows={computeTournamentLeaderboard(confirmed.map((r) => r.userId), matches)}
+            profiles={matchProfiles}
+          />
+        </div>
+      )}
     </div>
   )
 }

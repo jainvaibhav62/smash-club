@@ -1,6 +1,6 @@
-// Fixture generation (Stage A: fair match pool) and court scheduling
-// (Stage B: round-based court assignment). Design: see docs/fixture-algorithm.md.
-import { collection, doc, getDocs, query, where, writeBatch } from 'firebase/firestore'
+// Fixture generation (Stage A: fair match pool), court scheduling (Stage B:
+// round-based court assignment), and score entry. Design: see docs/fixture-algorithm.md.
+import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { converter } from './firestore'
 import { listRegistrationsForTournament } from './registrations'
@@ -219,4 +219,23 @@ export async function generateFixtures(
 
   const roundCount = scheduled.length > 0 ? Math.max(...scheduled.map((m) => m.round)) + 1 : 0
   return { matchCount: scheduled.length, roundCount }
+}
+
+/** Records or corrects a match's score. Works whether the match is being scored
+ * for the first time or already completed (re-submitting overwrites), since the
+ * spec calls for admins to be able to fix mistakes after the fact. */
+export async function recordMatchScore(matchId: string, scoreA: number, scoreB: number) {
+  if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0) {
+    throw new Error('Scores must be non-negative whole numbers.')
+  }
+  if (scoreA === scoreB) {
+    throw new Error('Scores can’t be tied — there must be a winner.')
+  }
+  await updateDoc(doc(db, 'matches', matchId), {
+    status: 'completed',
+    scoreA,
+    scoreB,
+    winner: scoreA > scoreB ? 'A' : 'B',
+    completedAt: serverTimestamp(),
+  })
 }

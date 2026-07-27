@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { FixturesList } from '../components/FixturesList'
+import { TournamentStandings } from '../components/TournamentStandings'
 import { fetchPublicProfiles } from '../services/auth'
 import { listMatchesForTournament } from '../services/fixtures'
+import { computeTournamentLeaderboard } from '../services/leaderboard'
 import { getCourtsByIds } from '../services/locations'
 import {
   listRegistrationsForTournament,
@@ -29,6 +31,7 @@ export function TournamentsPage() {
     matches: Match[]
     courts: Court[]
     profiles: Record<string, PublicProfile>
+    confirmedPlayerIds: string[]
   } | null>(null)
   const [fixturesLoading, setFixturesLoading] = useState(false)
 
@@ -82,13 +85,17 @@ export function TournamentsPage() {
     }
     setExpandedFixtures(tournament.id)
     setFixturesLoading(true)
-    const [matches, courts] = await Promise.all([
+    const [matches, courts, tournamentRegs] = await Promise.all([
       listMatchesForTournament(tournament.id),
       getCourtsByIds(tournament.courtIds),
+      listRegistrationsForTournament(tournament.id),
     ])
-    const involvedIds = matches.flatMap((m) => [...m.teamA, ...m.teamB])
+    const confirmedPlayerIds = tournamentRegs
+      .filter((r) => r.status === 'confirmed')
+      .map((r) => r.userId)
+    const involvedIds = [...matches.flatMap((m) => [...m.teamA, ...m.teamB]), ...confirmedPlayerIds]
     const profiles = await fetchPublicProfiles(involvedIds)
-    setFixtureData({ matches, courts, profiles })
+    setFixtureData({ matches, courts, profiles, confirmedPlayerIds })
     setFixturesLoading(false)
   }
 
@@ -179,11 +186,27 @@ export function TournamentsPage() {
                     <p className="text-sm text-slate-500 dark:text-slate-400">Loading fixtures…</p>
                   ) : (
                     fixtureData && (
-                      <FixturesList
-                        matches={fixtureData.matches}
-                        courts={fixtureData.courts}
-                        profiles={fixtureData.profiles}
-                      />
+                      <div className="space-y-4">
+                        {fixtureData.matches.length > 0 && (
+                          <div>
+                            <h3 className="mb-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                              Standings
+                            </h3>
+                            <TournamentStandings
+                              rows={computeTournamentLeaderboard(
+                                fixtureData.confirmedPlayerIds,
+                                fixtureData.matches,
+                              )}
+                              profiles={fixtureData.profiles}
+                            />
+                          </div>
+                        )}
+                        <FixturesList
+                          matches={fixtureData.matches}
+                          courts={fixtureData.courts}
+                          profiles={fixtureData.profiles}
+                        />
+                      </div>
                     )
                   )}
                 </div>

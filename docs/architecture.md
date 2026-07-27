@@ -4,15 +4,15 @@
 
 - **Frontend**: React + TypeScript, Vite, Tailwind CSS, React Router
 - **Hosting**: GitHub Pages (static build; Vite `base` set to the repo name)
-- **Backend**: Firebase — Firestore (database), Firebase Auth (Google Sign-In), Cloud Functions (aggregate/stat maintenance), Cloud Messaging (future push notifications)
+- **Backend**: Firebase — Firestore (database), Firebase Auth (Google Sign-In), Cloud Messaging (future push notifications). **No Cloud Functions** — this project consistently avoids them (they require the paid Blaze plan, same reasoning as skipping Cloud Storage for photos); anything that might otherwise be a server-side trigger is either computed live on the client or handled as a direct client write, documented per-feature below.
 - **Auth model**: every signed-in user gets a `users/{uid}` doc. Admins are distinguished by a `role: 'admin'` field, set manually in the Firestore console for the first admin(s) — there is no self-service admin signup.
 
 ## Why Firestore documents are shaped this way
 
 Two ideas drive every collection below:
 
-1. **Denormalize for read-heavy aggregates.** Leaderboards and player stats are read constantly (every page load) but only need to change on the much rarer event of a match completing. So `tournamentStats` and `playerStats` are pre-aggregated documents, kept in sync by Cloud Functions triggered on `matches/{matchId}` writes — never recomputed from the full match history at read time. This is what lets the all-time leaderboard stay fast after years of tournament history.
-2. **Keep matches as the single source of truth for everything derived.** Scores, court assignments, and fixture state all live on the `matches` collection. Stats, head-to-head records, and leaderboards are all *derived* from it. If a score is corrected, the same trigger that computed the aggregate the first time re-applies the delta — there's never a second, independent place these numbers are calculated.
+1. **Matches are the single source of truth for everything derived.** Scores, court assignments, and fixture state all live on the `matches` collection. Leaderboards and standings are *derived* from it, computed live (`src/services/leaderboard.ts`) rather than via precomputed aggregate documents — the original design used Cloud-Function-maintained `tournamentStats`/`playerStats`/`headToHead` collections for this, but per the no-Cloud-Functions constraint above, those collections were never actually implemented; see "Registration & waitlist" below for the same live-computation pattern applied to registration counts, and `docs/leaderboard-algorithms.md` for the leaderboard folding logic. At this app's scale, reducing over match documents at view time is cheap enough that a precomputed cache isn't worth the added moving parts.
+2. **Denormalize where a live computation genuinely wouldn't scale.** This principle still applies in general — it just hasn't been needed yet at this app's scale. If tournament history grows large enough that folding all matches on every leaderboard view becomes slow, that's the point to introduce a cached aggregate (maintained by a client-side write alongside score entry, not a Cloud Function).
 
 ## Collections
 
@@ -82,35 +82,6 @@ matches/{matchId}
   startedAt?: Timestamp
   completedAt?: Timestamp
 
-tournamentStats/{tournamentId}_{userId}
-  tournamentId: string
-  userId: string
-  wins: number
-  losses: number
-  matchesPlayed: number
-  pointsFor: number
-  pointsAgainst: number
-  pointDiff: number
-
-playerStats/{userId}            // all-time, denormalized
-  tournamentsPlayed: number
-  matchesPlayed: number
-  wins: number
-  losses: number
-  winPct: number
-  pointsFor: number
-  pointsAgainst: number
-  pointDiff: number
-  championships: number
-  runnerUps: number
-  highestRanking: number | null
-  favoriteCourtId: string | null
-  mostFrequentOpponentId: string | null
-  mostFrequentPartnerId: string | null
-
-headToHead/{sortedUserIdPair}   // doc id = [uidA, uidB].sort().join('_')
-  wins: { [userId: string]: number }
-
 notifications/{userId}/items/{notificationId}
   type: string
   message: string
@@ -118,8 +89,15 @@ notifications/{userId}/items/{notificationId}
   read: boolean
   createdAt: Timestamp
 
-config/leaderboardRules          // singleton doc, admin-editable
-  tournamentTieBreakOrder: ('wins'|'points'|'pointDiff'|'headToHead'|'matchesPlayed'|'winPct')[]
+# --- Designed but not implemented (see docs/leaderboard-algorithms.md "Roadmap") ---
+# Both leaderboards currently compute everything live from `matches` instead — no
+# client writes to these, and they don't exist in the live Firestore project.
+#
+# tournamentStats/{tournamentId}_{userId}   wins, losses, matchesPlayed, pointsFor/Against, pointDiff
+# playerStats/{userId}                      all-time totals + championships/runnerUps/highestRanking/etc.
+# headToHead/{sortedUserIdPair}              wins: { [userId]: number }
+# config/leaderboardRules                    admin-configurable tie-break order & weights
+#   tournamentTieBreakOrder: ('wins'|'points'|'pointDiff'|'headToHead'|'matchesPlayed'|'winPct')[]
   allTimeWeights: {
     wins: number
     winPct: number
@@ -150,8 +128,8 @@ Registration is automatic, not admin-approved: the first `maxPlayers` sign-ups b
 - `tournaments`: public read, admin-only write.
 - `registrations`: a user can create/read their own with status `confirmed`/`waitlisted`, and update their own status to `confirmed`/`waitlisted`/`withdrawn` (covers re-registration); any signed-in user may additionally flip *another* registration from `waitlisted` to `confirmed` and nothing else (see "Registration & waitlist" above); admin can do anything.
 - `matches`: public read; writes restricted to admins (fixture generation, score entry, swaps) and blocked entirely once `status == 'locked'`.
-- `tournamentStats`, `playerStats`, `headToHead`: public read, write restricted to Cloud Functions (Admin SDK bypasses rules) — no client writes at all.
-- `notifications/{userId}/items/*`: a user can read/mark-read only their own subtree; created by Cloud Functions.
+- `tournamentStats`, `playerStats`, `headToHead`: rules exist (public read, all writes denied) but nothing in the app reads or writes these paths — see the "designed but not implemented" note in the Collections section above.
+- `notifications/{userId}/items/*`: a user can read/mark-read only their own subtree; nothing currently writes new ones (see `docs/leaderboard-algorithms.md`-style roadmap notes — this was scoped out early on in favor of reflecting status changes in-place).
 
 ## Service layer (`src/services/`)
 
@@ -159,7 +137,7 @@ One file per concern, matching the spec's "separate services" requirement:
 
 - `auth.ts` — Google Sign-In, session state, role lookup
 - `firestore.ts` — typed collection/document reference helpers, shared converters
-- `fixtures.ts` — Stage A/B fixture generation and court scheduling (see `fixture-algorithm.md`)
+- `fixtures.ts` — Stage A/B fixture generation, court scheduling, and score entry (see `fixture-algorithm.md`)
 - `leaderboard.ts` — tournament + all-time ranking (see `leaderboard-algorithms.md`)
 - `stats.ts` — player statistics page queries
 - `notifications.ts` — read/write the in-app notification feed

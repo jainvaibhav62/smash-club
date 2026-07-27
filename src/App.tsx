@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { HashRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { Layout } from './components/Layout'
@@ -6,6 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { HomePage } from './pages/Home'
 import { ProfilePage } from './pages/Profile'
 import { TournamentsPage } from './pages/Tournaments'
+import { LeaderboardPage } from './pages/Leaderboard'
 import { AdminLocationsPage } from './pages/admin/Locations'
 import { AdminTournamentsPage } from './pages/admin/Tournaments'
 import { AdminRegistrationsPage } from './pages/admin/Registrations'
@@ -14,7 +15,7 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <HashRouter>
           <Layout>
             <Routes>
               <Route
@@ -38,6 +39,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <TournamentsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/leaderboard"
+                element={
+                  <ProtectedRoute>
+                    <LeaderboardPage />
                   </ProtectedRoute>
                 }
               />
@@ -67,7 +76,7 @@ function App() {
               />
             </Routes>
           </Layout>
-        </BrowserRouter>
+        </HashRouter>
       </AuthProvider>
     </ThemeProvider>
   )

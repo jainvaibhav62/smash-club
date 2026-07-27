@@ -163,3 +163,16 @@ export interface LeaderboardRules {
     recentForm: number
   }
 }
+
+/** A player's row in either leaderboard — computed live from match results,
+ * see docs/leaderboard-algorithms.md. Not a Firestore document shape. */
+export interface LeaderboardRow {
+  userId: string
+  wins: number
+  losses: number
+  matchesPlayed: number
+  pointsFor: number
+  pointsAgainst: number
+  pointDiff: number
+  winPct: number
+}
