@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { Avatar } from './Avatar'
@@ -11,16 +11,25 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
   }`
 
 export function NavBar() {
+  const navigate = useNavigate()
   const { profile, isAdmin, signIn, signOutUser } = useAuth()
   const { theme, toggleTheme } = useTheme()
+
+  async function handleSignOut() {
+    await signOutUser()
+    navigate('/')
+  }
 
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur print:hidden dark:border-slate-800 dark:bg-slate-950/80">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-4">
-          <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-            Smash Club
-          </span>
+          <button
+            onClick={() => navigate('/')}
+            className="text-lg font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+          >
+            🏸 Smash Club
+          </button>
           {profile && (
             <nav className="flex gap-1">
               <NavLink to="/" end className={linkClass}>
@@ -64,7 +73,7 @@ export function NavBar() {
                 {profile.displayName}
               </NavLink>
               <button
-                onClick={() => signOutUser()}
+                onClick={handleSignOut}
                 className="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
                 Sign out

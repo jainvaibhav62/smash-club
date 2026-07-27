@@ -39,14 +39,28 @@ export function LandingPage() {
   return (
     <div className="space-y-12">
       {/* Hero section */}
-      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-emerald-400 via-blue-400 to-indigo-500 p-16 text-center text-white shadow-lg">
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-emerald-400 via-blue-400 to-indigo-500 p-16 text-white shadow-lg">
         <div className="absolute -right-20 -top-20 text-9xl opacity-10">🏸</div>
-        <div className="relative z-10">
-          <h1 className="mb-2 text-5xl font-bold">🏸 Smash Club</h1>
-          <p className="mb-3 text-xl font-medium">Where shuttlecocks fly and rivalries soar ⚡</p>
-          <p className="text-sm opacity-90">
-            Join the club to register for tournaments, crush your competition, and climb the rankings.
-          </p>
+        <div className="absolute -bottom-16 -right-16 text-[200px] opacity-20">🏸</div>
+        <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-2">
+          <div className="relative z-10">
+            <h1 className="mb-2 text-5xl font-bold">🏸 Smash Club</h1>
+            <p className="mb-3 text-xl font-medium">Where shuttlecocks fly and rivalries soar ⚡</p>
+            <p className="text-sm opacity-90">
+              Join the club to register for tournaments, crush your competition, and climb the rankings.
+            </p>
+          </div>
+          <div className="relative z-10 hidden md:block">
+            <svg viewBox="0 0 300 400" className="h-80 w-full">
+              {/* Racket */}
+              <circle cx="150" cy="80" r="50" fill="none" stroke="white" strokeWidth="8"/>
+              <line x1="150" y1="130" x2="150" y2="320" stroke="white" strokeWidth="6"/>
+              <ellipse cx="150" cy="340" rx="35" ry="12" fill="white" opacity="0.8"/>
+              {/* Shuttlecock */}
+              <circle cx="100" cy="120" r="12" fill="white"/>
+              <path d="M 100 132 L 95 160 L 100 155 L 105 160 Z" fill="white" opacity="0.9"/>
+            </svg>
+          </div>
         </div>
       </div>
 
