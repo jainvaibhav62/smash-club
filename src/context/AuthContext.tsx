@@ -27,11 +27,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = subscribeToAuthState(async (user) => {
       setFirebaseUser(user)
       if (user) {
+        // Check if user's email is verified (for email signup users)
+        const isEmailUnverified = user.email && !user.emailVerified
+
+        // Redirect to verify-email page if email signup user hasn't verified
+        if (isEmailUnverified) {
+          setProfile(null)
+          setShowOnboarding(false)
+          setLoading(false)
+          return
+        }
+
         const { profile: userProfile, isNew } = await ensureUserProfile(user)
         setProfile(userProfile)
-        // Show onboarding if new user OR if email verification is pending (email signup users)
-        const needsOnboarding = isNew || (userProfile.emailVerified === false)
-        if (needsOnboarding) setShowOnboarding(true)
+        // Show onboarding if new user
+        if (isNew) setShowOnboarding(true)
       } else {
         setProfile(null)
         setShowOnboarding(false)
