@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
 import { fetchUserProfile, updateUserProfile } from '../../services/auth'
-import { resendVerificationEmail } from '../../services/verification'
 import type { PlayingHand, SkillLevel, UserProfile } from '../../types'
 
 export function AdminUserProfilePage() {
@@ -12,8 +11,6 @@ export function AdminUserProfilePage() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [resending, setResending] = useState(false)
-  const [resendMessage, setResendMessage] = useState('')
 
   const [displayName, setDisplayName] = useState('')
   const [skillLevel, setSkillLevel] = useState<SkillLevel>('beginner')
@@ -68,21 +65,6 @@ export function AdminUserProfilePage() {
     }
   }
 
-  async function handleResendVerificationEmail() {
-    if (!profile) return
-    setResending(true)
-    setResendMessage('')
-    try {
-      await resendVerificationEmail(profile.uid)
-      setResendMessage(`✓ Verification email sent to ${profile.email}`)
-      setTimeout(() => setResendMessage(''), 3000)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to resend verification email')
-    } finally {
-      setResending(false)
-    }
-  }
-
   if (loading) return <p className="text-slate-500 dark:text-slate-400">Loading…</p>
   if (!profile) return <p className="text-slate-500 dark:text-slate-400">User not found.</p>
 
@@ -109,27 +91,6 @@ export function AdminUserProfilePage() {
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">ID</p>
             <p className="font-mono text-sm text-slate-600 dark:text-slate-400">{profile.uid}</p>
           </div>
-        </div>
-
-        <div className="mb-6 rounded-md border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-medium text-blue-900 dark:text-blue-100">📧 Resend verification email</p>
-              <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-                If the user didn't receive the verification email, click below to resend it to {profile.email}
-              </p>
-            </div>
-          </div>
-          {resendMessage && (
-            <p className="mt-3 text-sm text-green-700 dark:text-green-300">{resendMessage}</p>
-          )}
-          <button
-            onClick={handleResendVerificationEmail}
-            disabled={resending}
-            className="mt-3 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {resending ? 'Sending...' : 'Resend verification email'}
-          </button>
         </div>
 
         {!editing ? (

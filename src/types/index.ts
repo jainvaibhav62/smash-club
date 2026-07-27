@@ -15,6 +15,7 @@ export interface UserProfile {
   playingHand: PlayingHand
   role: Role
   createdAt: Timestamp
+  emailVerified?: boolean
 }
 
 /** Public-safe subset — readable by any signed-in user (no email/gender). */

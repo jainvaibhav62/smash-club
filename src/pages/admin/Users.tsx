@@ -25,6 +25,7 @@ export function AdminUsersPage() {
       const querySnapshot = await getDocs(collection(db, 'users'))
       const userList = querySnapshot.docs
         .map((doc) => ({ uid: doc.id, ...doc.data() } as UserProfile))
+        .filter((user) => user.emailVerified === true)
         .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0))
       setUsers(userList)
     } catch (err) {
