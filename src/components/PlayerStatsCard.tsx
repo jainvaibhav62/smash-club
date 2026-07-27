@@ -114,8 +114,8 @@ export function PlayerStatsCard({
       )}
 
       {stats.matchesPlayed === 0 && (
-        <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-          🏸 No completed matches yet. Win some games to build your stats!
+        <p className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+          🏸 Fresh start! No completed matches yet. Go sign up for a tournament and start building that legendary record!
         </p>
       )}
     </div>

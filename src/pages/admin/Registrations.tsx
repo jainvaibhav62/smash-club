@@ -9,7 +9,7 @@ import { generateFixtures, listMatchesForTournament, recordMatchScore } from '..
 import { computeTournamentLeaderboard } from '../../services/leaderboard'
 import { getCourtsByIds } from '../../services/locations'
 import { countConfirmed, listRegistrationsForTournament, removeRegistration } from '../../services/registrations'
-import { getTournament } from '../../services/tournaments'
+import { getTournament, setTournamentStatus } from '../../services/tournaments'
 import type { Court, Match, PublicProfile, Registration, Tournament, UserProfile } from '../../types'
 
 export function AdminRegistrationsPage() {
@@ -25,6 +25,7 @@ export function AdminRegistrationsPage() {
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [fixtureError, setFixtureError] = useState('')
+  const [publishingLeaderboard, setPublishingLeaderboard] = useState(false)
 
   async function load() {
     if (!tournamentId) return
@@ -93,6 +94,20 @@ export function AdminRegistrationsPage() {
   async function handleSubmitScore(matchId: string, scoreA: number, scoreB: number) {
     await recordMatchScore(matchId, scoreA, scoreB)
     await load()
+  }
+
+  async function handlePublishLeaderboard() {
+    if (!tournamentId) return
+    if (!window.confirm('Publish leaderboard and lock in final standings for this tournament?')) return
+    setPublishingLeaderboard(true)
+    try {
+      await setTournamentStatus(tournamentId, 'completed')
+      await load()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to publish leaderboard.')
+    } finally {
+      setPublishingLeaderboard(false)
+    }
   }
 
   if (loading) return <p className="text-slate-500 dark:text-slate-400">Loading…</p>
@@ -167,7 +182,8 @@ export function AdminRegistrationsPage() {
           <div className="flex gap-2">
             <button
               onClick={handleDisplayFixtures}
-              disabled={generating}
+              disabled={generating || matches.some((m) => m.status === 'completed')}
+              title={matches.some((m) => m.status === 'completed') ? 'Cannot change fixtures after scoring begins' : ''}
               className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               {generating ? 'Generating…' : matches.length > 0 ? 'Redo fixtures' : 'Display fixtures'}
@@ -201,7 +217,25 @@ export function AdminRegistrationsPage() {
 
       {matches.length > 0 && (
         <div className="space-y-3 border-t border-slate-200 pt-6 dark:border-slate-800">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Standings</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                {tournament.status === 'completed' ? '✓ Published' : 'Draft'} standings
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {matches.filter((m) => m.status === 'completed').length} of {matches.length} matches scored
+              </p>
+            </div>
+            {tournament.status !== 'completed' && matches.some((m) => m.status === 'completed') && (
+              <button
+                onClick={handlePublishLeaderboard}
+                disabled={publishingLeaderboard}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {publishingLeaderboard ? 'Publishing…' : 'Update Leaderboard'}
+              </button>
+            )}
+          </div>
           <TournamentStandings
             rows={computeTournamentLeaderboard(confirmed.map((r) => r.userId), matches)}
             profiles={matchProfiles}

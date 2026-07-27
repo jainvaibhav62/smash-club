@@ -187,10 +187,10 @@ export function TournamentsPage() {
                   ) : (
                     fixtureData && (
                       <div className="space-y-4">
-                        {fixtureData.matches.length > 0 && (
+                        {fixtureData.matches.length > 0 && tournament.status === 'completed' && (
                           <div>
                             <h3 className="mb-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
-                              Standings
+                              Final standings
                             </h3>
                             <TournamentStandings
                               rows={computeTournamentLeaderboard(
@@ -199,6 +199,11 @@ export function TournamentsPage() {
                               )}
                               profiles={fixtureData.profiles}
                             />
+                          </div>
+                        )}
+                        {fixtureData.matches.length > 0 && tournament.status !== 'completed' && (
+                          <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                            🍲 Standings are still marinating — check back once the tournament wraps up!
                           </div>
                         )}
                         <FixturesList

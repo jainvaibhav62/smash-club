@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TournamentStandings } from '../components/TournamentStandings'
 import { fetchPublicProfiles } from '../services/auth'
-import { computeAllTimeLeaderboard, listAllCompletedMatches } from '../services/leaderboard'
+import { computeAllTimeLeaderboard, listPublishedMatches } from '../services/leaderboard'
 import type { LeaderboardRow, PublicProfile } from '../types'
 
 export function LeaderboardPage() {
@@ -12,7 +12,7 @@ export function LeaderboardPage() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const matches = await listAllCompletedMatches()
+      const matches = await listPublishedMatches()
       const leaderboardRows = computeAllTimeLeaderboard(matches)
       setRows(leaderboardRows)
       setProfiles(await fetchPublicProfiles(leaderboardRows.map((r) => r.userId)))

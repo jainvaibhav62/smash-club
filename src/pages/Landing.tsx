@@ -39,16 +39,15 @@ export function LandingPage() {
   return (
     <div className="space-y-12">
       {/* Hero section */}
-      <div className="rounded-lg bg-gradient-to-br from-emerald-50 to-blue-50 p-12 text-center dark:from-emerald-950/30 dark:to-blue-950/30">
-        <h1 className="mb-3 text-4xl font-bold text-emerald-900 dark:text-emerald-300">
-          🏸 Smash Club
-        </h1>
-        <p className="mb-2 text-lg text-emerald-700 dark:text-emerald-400">
-          Where badminton meets community
-        </p>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          Sign up to register for tournaments, track your stats, and challenge rivals.
-        </p>
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-emerald-400 via-blue-400 to-indigo-500 p-16 text-center text-white shadow-lg">
+        <div className="absolute -right-20 -top-20 text-9xl opacity-10">🏸</div>
+        <div className="relative z-10">
+          <h1 className="mb-2 text-5xl font-bold">🏸 Smash Club</h1>
+          <p className="mb-3 text-xl font-medium">Where shuttlecocks fly and rivalries soar ⚡</p>
+          <p className="text-sm opacity-90">
+            Join the club to register for tournaments, crush your competition, and climb the rankings.
+          </p>
+        </div>
       </div>
 
       {/* All-time leaderboard preview */}
@@ -98,12 +97,15 @@ export function LandingPage() {
       )}
 
       {/* Call to action */}
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-6 text-center dark:border-emerald-900/30 dark:bg-emerald-950/20">
-        <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
-          Ready to join the club? Sign in to see your stats, register for tournaments, and more.
+      <div className="rounded-lg border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-green-50 p-8 text-center dark:border-emerald-700/50 dark:from-emerald-950/30 dark:to-green-950/30">
+        <p className="mb-3 text-base font-medium text-slate-700 dark:text-slate-200">
+          🎯 Ready to test your smash skills?
+        </p>
+        <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
+          Sign in to see your stats, register for tournaments, and prove you're the club champion.
         </p>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Look for the buttons at the top right to sign up or log in.
+          👉 Look for <span className="font-semibold">New Member? Sign Up</span> or <span className="font-semibold">Already a member? Log In</span> at the top right
         </p>
       </div>
     </div>
