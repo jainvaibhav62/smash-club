@@ -8,12 +8,15 @@ import { fetchPublicProfiles } from '../services/auth'
 import type { LeaderboardRow, PublicProfile, RecentMatch, TopRival } from '../types'
 
 export function HomePage() {
-  const { profile, isAdmin } = useAuth()
+  const { profile, firebaseUser, isAdmin } = useAuth()
   const [stats, setStats] = useState<LeaderboardRow | null>(null)
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([])
   const [topRivals, setTopRivals] = useState<TopRival[]>([])
   const [profiles, setProfiles] = useState<Record<string, PublicProfile>>({})
   const [loadingStats, setLoadingStats] = useState(true)
+
+  // Check if user is logged in but hasn't verified email (email signup)
+  const isUnverifiedEmailUser = firebaseUser && firebaseUser.email && !firebaseUser.emailVerified && !profile
 
   useEffect(() => {
     if (!profile) return
@@ -34,6 +37,51 @@ export function HomePage() {
     }
     load()
   }, [profile?.uid])
+
+  // Show message if unverified email user tries to login
+  if (isUnverifiedEmailUser) {
+    return (
+      <div className="mx-auto max-w-md rounded-lg border border-orange-200 bg-orange-50 p-6 dark:border-orange-900 dark:bg-orange-950/30">
+        <div className="mb-4 text-center">
+          <div className="mb-3 text-4xl">📧</div>
+          <h1 className="mb-2 text-xl font-bold text-orange-900 dark:text-orange-100">
+            Verify your email to continue
+          </h1>
+          <p className="text-sm text-orange-800 dark:text-orange-200">
+            We sent a verification link to <strong>{firebaseUser.email}</strong>
+          </p>
+        </div>
+
+        <div className="space-y-3 rounded-md bg-white p-3 dark:bg-slate-800">
+          <div className="flex gap-2 text-sm">
+            <span className="text-lg">1️⃣</span>
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">Check your inbox</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Look for an email from Smash Club</p>
+            </div>
+          </div>
+          <div className="flex gap-2 text-sm">
+            <span className="text-lg">2️⃣</span>
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">Check spam folder</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Sometimes emails end up there by mistake</p>
+            </div>
+          </div>
+          <div className="flex gap-2 text-sm">
+            <span className="text-lg">3️⃣</span>
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">Click the link</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Verify your email to access your account</p>
+            </div>
+          </div>
+        </div>
+
+        <p className="mt-4 text-center text-xs text-orange-700 dark:text-orange-300">
+          Once verified, you'll have full access to Smash Club
+        </p>
+      </div>
+    )
+  }
 
   if (!profile) return <LandingPage />
 

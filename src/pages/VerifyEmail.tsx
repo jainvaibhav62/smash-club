@@ -86,9 +86,15 @@ export function VerifyEmailPage() {
         <h1 className="mb-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
           Verify your email
         </h1>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          We sent a 6-digit code to <strong>{email}</strong>
+        <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
+          We sent a verification link to <strong>{email}</strong>
         </p>
+        <div className="rounded-md bg-blue-50 p-3 text-sm dark:bg-blue-950/30">
+          <p className="mb-2 font-medium text-blue-700 dark:text-blue-300">📧 Check your inbox</p>
+          <p className="text-blue-600 dark:text-blue-400">
+            Click the verification link in the email to confirm your account. If you don't see it, check your spam or promotions folder.
+          </p>
+        </div>
       </div>
 
       <form onSubmit={handleVerify} className="space-y-4">
