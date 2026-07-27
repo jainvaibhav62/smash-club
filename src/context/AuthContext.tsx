@@ -39,6 +39,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe
   }, [])
 
+  // Auto sign-out after 30 minutes of inactivity
+  useEffect(() => {
+    if (!firebaseUser) return
+
+    let inactivityTimeout: ReturnType<typeof setTimeout>
+
+    const resetInactivityTimer = () => {
+      clearTimeout(inactivityTimeout)
+      inactivityTimeout = setTimeout(() => {
+        signOutUser()
+      }, 30 * 60 * 1000) // 30 minutes
+    }
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click']
+    events.forEach((event) => {
+      document.addEventListener(event, resetInactivityTimer)
+    })
+
+    resetInactivityTimer()
+
+    return () => {
+      clearTimeout(inactivityTimeout)
+      events.forEach((event) => {
+        document.removeEventListener(event, resetInactivityTimer)
+      })
+    }
+  }, [firebaseUser])
+
   async function refreshProfile() {
     if (!firebaseUser) return
     const { profile: userProfile } = await ensureUserProfile(firebaseUser)

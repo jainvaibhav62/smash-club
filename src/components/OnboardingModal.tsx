@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { updateUserProfile } from '../services/auth'
 import type { SkillLevel } from '../types'
 
 export function OnboardingModal() {
+  const navigate = useNavigate()
   const { profile, dismissOnboarding, refreshProfile } = useAuth()
   if (!profile) return null
   const [displayName, setDisplayName] = useState(profile.displayName ?? '')
@@ -23,6 +25,7 @@ export function OnboardingModal() {
       await updateUserProfile(profile!.uid, { displayName, skillLevel })
       await refreshProfile()
       dismissOnboarding()
+      navigate('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save profile.')
     } finally {
