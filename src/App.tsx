@@ -15,6 +15,7 @@ import { AdminLocationsPage } from './pages/admin/Locations'
 import { AdminTournamentsPage } from './pages/admin/Tournaments'
 import { AdminRegistrationsPage } from './pages/admin/Registrations'
 import { AdminFixturesPrintPage } from './pages/admin/FixturesPrint'
+import { AdminUsersPage } from './pages/admin/Users'
 
 function App() {
   return (
@@ -49,6 +50,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <LeaderboardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <AdminUsersPage />
                   </ProtectedRoute>
                 }
               />

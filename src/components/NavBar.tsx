@@ -43,6 +43,9 @@ export function NavBar() {
               </NavLink>
               {isAdmin && (
                 <>
+                  <NavLink to="/admin/users" className={linkClass}>
+                    Users
+                  </NavLink>
                   <NavLink to="/admin/locations" className={linkClass}>
                     Locations
                   </NavLink>
