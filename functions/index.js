@@ -71,6 +71,82 @@ exports.sendVerificationCode = functions.https.onCall(async (data, context) => {
   }
 });
 
+// Delete a user account (admin only)
+exports.deleteUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
+  }
+
+  const { uid } = data;
+  if (!uid) {
+    throw new functions.https.HttpsError('invalid-argument', 'User UID is required');
+  }
+
+  try {
+    // Check if requester is admin
+    const requesterToken = await admin.auth().verifyIdToken(context.auth.token);
+    const requesterDoc = await admin.firestore().collection('users').doc(context.auth.uid).get();
+
+    if (requesterDoc.data()?.role !== 'admin') {
+      throw new functions.https.HttpsError('permission-denied', 'Only admins can delete users');
+    }
+
+    // Prevent admin from deleting themselves
+    if (uid === context.auth.uid) {
+      throw new functions.https.HttpsError('invalid-argument', 'Cannot delete your own account');
+    }
+
+    // Delete Firestore profile documents
+    await admin.firestore().collection('users').doc(uid).delete();
+    await admin.firestore().collection('publicProfiles').doc(uid).delete();
+
+    // Delete all registrations for this user
+    const registrationsSnapshot = await admin
+      .firestore()
+      .collection('registrations')
+      .where('userId', '==', uid)
+      .get();
+
+    const deleteRegPromises = registrationsSnapshot.docs.map(doc => doc.ref.delete());
+    await Promise.all(deleteRegPromises);
+
+    // Delete all matches where user was a player
+    const matchesSnapshot = await admin
+      .firestore()
+      .collectionGroup('matches')
+      .where('teamA', 'array-contains', uid)
+      .get();
+
+    const matchesToDelete = new Set();
+    matchesSnapshot.docs.forEach(doc => matchesToDelete.add(doc.ref));
+
+    const matchesSnapshot2 = await admin
+      .firestore()
+      .collectionGroup('matches')
+      .where('teamB', 'array-contains', uid)
+      .get();
+
+    matchesSnapshot2.docs.forEach(doc => matchesToDelete.add(doc.ref));
+
+    const deleteMatchPromises = Array.from(matchesToDelete).map(ref => ref.delete());
+    await Promise.all(deleteMatchPromises);
+
+    // Delete Firebase Auth account
+    await admin.auth().deleteUser(uid);
+
+    return {
+      success: true,
+      message: `User ${uid} deleted successfully`,
+    };
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    if (error.code) {
+      throw error; // Re-throw HttpsError
+    }
+    throw new functions.https.HttpsError('internal', 'Failed to delete user');
+  }
+});
+
 // Verify the code
 exports.verifyCode = functions.https.onCall(async (data, context) => {
   const { uid, code } = data;

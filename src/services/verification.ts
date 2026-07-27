@@ -10,3 +10,8 @@ export async function verifyCode(uid: string, code: string): Promise<void> {
   const verifyCode = httpsCallable(functions, 'verifyCode')
   await verifyCode({ uid, code })
 }
+
+export async function deleteUserAccount(uid: string): Promise<void> {
+  const deleteUser = httpsCallable(functions, 'deleteUser')
+  await deleteUser({ uid })
+}

@@ -4,10 +4,11 @@ import { useAuth } from '../context/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { updateUserProfile } from '../services/auth'
 import { resizeImageToDataUrl } from '../services/photo'
+import { deleteUserAccount } from '../services/verification'
 import type { PlayingHand, SkillLevel } from '../types'
 
 export function ProfilePage() {
-  const { profile, refreshProfile } = useAuth()
+  const { profile, refreshProfile, isAdmin } = useAuth()
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '')
@@ -20,6 +21,7 @@ export function ProfilePage() {
   const [error, setError] = useState('')
   const [photoError, setPhotoError] = useState('')
   const [processingPhoto, setProcessingPhoto] = useState(false)
+  const [deletingUser, setDeletingUser] = useState(false)
 
   if (!profile) return null
 
@@ -52,6 +54,24 @@ export function ProfilePage() {
       setError(err instanceof Error ? err.message : 'Failed to save profile. Please try again.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDeleteUser() {
+    if (!window.confirm(`Delete user ${displayName}? This action cannot be undone and will delete all their data.`)) {
+      return
+    }
+
+    setDeletingUser(true)
+    setError('')
+
+    try {
+      await deleteUserAccount(profile!.uid)
+      navigate('/')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user'
+      setError(errorMessage)
+      setDeletingUser(false)
     }
   }
 
@@ -165,6 +185,22 @@ export function ProfilePage() {
         {savedMessage && <p className="text-sm text-emerald-600 dark:text-emerald-400">{savedMessage}</p>}
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       </form>
+
+      {isAdmin && (
+        <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/20">
+          <h2 className="mb-3 text-sm font-bold text-red-700 dark:text-red-400">Admin: Delete user</h2>
+          <p className="mb-3 text-xs text-red-600 dark:text-red-300">
+            Permanently delete this user account and all associated data (registrations, matches).
+          </p>
+          <button
+            onClick={handleDeleteUser}
+            disabled={deletingUser}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {deletingUser ? 'Deleting…' : 'Delete user'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
