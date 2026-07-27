@@ -18,104 +18,54 @@ function pairKey(a: string, b: string) {
   return [a, b].sort().join('|')
 }
 
-function pickRandomDistinct<T>(pool: T[], count: number): T[] {
-  const copy = [...pool]
-  const picked: T[] = []
-  while (picked.length < count && copy.length > 0) {
-    const index = Math.floor(Math.random() * copy.length)
-    picked.push(copy.splice(index, 1)[0])
-  }
-  return picked
-}
-
-function sampleCandidates(pool: string[], playersPerTeam: number, batchSize: number): Candidate[] {
-  const need = playersPerTeam * 2
-  if (pool.length < need) return []
-  const candidates: Candidate[] = []
-  for (let i = 0; i < batchSize; i++) {
-    const picked = pickRandomDistinct(pool, need)
-    candidates.push({ teamA: picked.slice(0, playersPerTeam), teamB: picked.slice(playersPerTeam) })
-  }
-  return candidates
-}
-
-function candidateCost(
-  candidate: Candidate,
-  matchesPlayed: Record<string, number>,
-  opponentCount: Record<string, number>,
-  partnerCount: Record<string, number>,
-): number {
-  const { teamA, teamB } = candidate
-  let cost = 0
-  for (const a of teamA) {
-    for (const b of teamB) {
-      cost += 3 * (opponentCount[pairKey(a, b)] ?? 0)
-    }
-  }
-  if (teamA.length === 2) cost += 4 * (partnerCount[pairKey(teamA[0], teamA[1])] ?? 0)
-  if (teamB.length === 2) cost += 4 * (partnerCount[pairKey(teamB[0], teamB[1])] ?? 0)
-
-  const involved = [...teamA, ...teamB]
-  const counts = involved.map((p) => matchesPlayed[p] ?? 0)
-  const mean = counts.reduce((sum, c) => sum + c, 0) / counts.length
-  const variance = counts.reduce((sum, c) => sum + (c - mean) ** 2, 0) / counts.length
-  cost += 2 * variance
-
-  return cost
-}
-
 /** Stage A: build a fair set of matches — balanced match counts, minimized repeat
  * opponents/partners — via randomized weighted-candidate sampling (not full
  * enumeration; see the "why sampling" note in docs/fixture-algorithm.md). */
 export function buildMatchPool(
   playerIds: string[],
   type: TournamentType,
-  matchesPerPlayer: number,
 ): Candidate[] {
-  const playersPerTeam = type === 'doubles' ? 2 : 1
-  const matchesPlayed: Record<string, number> = {}
-  const opponentCount: Record<string, number> = {}
-  const partnerCount: Record<string, number> = {}
-  playerIds.forEach((p) => (matchesPlayed[p] = 0))
-
   const result: Candidate[] = []
-  const maxIterations = playerIds.length * matchesPerPlayer * 6 + 50
+  const playedMatches = new Set<string>()
 
-  for (let iter = 0; iter < maxIterations; iter++) {
-    const underTarget = playerIds.filter((p) => matchesPlayed[p] < matchesPerPlayer)
-    if (underTarget.length === 0) break
-
-    const need = playersPerTeam * 2
-    const pool = underTarget.length >= need ? underTarget : playerIds
-    const candidates = sampleCandidates(pool, playersPerTeam, 60)
-    if (candidates.length === 0) break
-
-    let best = candidates[0]
-    let bestCost = candidateCost(best, matchesPlayed, opponentCount, partnerCount)
-    for (const candidate of candidates.slice(1)) {
-      const cost = candidateCost(candidate, matchesPlayed, opponentCount, partnerCount)
-      if (cost < bestCost) {
-        best = candidate
-        bestCost = cost
+  if (type === 'singles') {
+    // Round-robin: every player plays every other player once
+    for (let i = 0; i < playerIds.length; i++) {
+      for (let j = i + 1; j < playerIds.length; j++) {
+        const matchKey = pairKey(playerIds[i], playerIds[j])
+        if (!playedMatches.has(matchKey)) {
+          result.push({
+            teamA: [playerIds[i]],
+            teamB: [playerIds[j]],
+          })
+          playedMatches.add(matchKey)
+        }
+      }
+    }
+  } else {
+    // Doubles: generate all possible team combinations
+    // Each unique pair plays every other unique pair
+    const pairs: string[][] = []
+    for (let i = 0; i < playerIds.length; i++) {
+      for (let j = i + 1; j < playerIds.length; j++) {
+        pairs.push([playerIds[i], playerIds[j]])
       }
     }
 
-    result.push(best)
-    const { teamA, teamB } = best
-    for (const p of [...teamA, ...teamB]) matchesPlayed[p] = (matchesPlayed[p] ?? 0) + 1
-    for (const a of teamA) {
-      for (const b of teamB) {
-        const key = pairKey(a, b)
-        opponentCount[key] = (opponentCount[key] ?? 0) + 1
+    for (let i = 0; i < pairs.length; i++) {
+      for (let j = i + 1; j < pairs.length; j++) {
+        const teamA = pairs[i]
+        const teamB = pairs[j]
+        // Make sure no player is in both teams
+        const allPlayers = [...teamA, ...teamB]
+        if (new Set(allPlayers).size === 4) {
+          const matchKey = `${pairKey(teamA[0], teamA[1])}|${pairKey(teamB[0], teamB[1])}`
+          if (!playedMatches.has(matchKey)) {
+            result.push({ teamA, teamB })
+            playedMatches.add(matchKey)
+          }
+        }
       }
-    }
-    if (teamA.length === 2) {
-      const key = pairKey(teamA[0], teamA[1])
-      partnerCount[key] = (partnerCount[key] ?? 0) + 1
-    }
-    if (teamB.length === 2) {
-      const key = pairKey(teamB[0], teamB[1])
-      partnerCount[key] = (partnerCount[key] ?? 0) + 1
     }
   }
 
@@ -193,7 +143,7 @@ export async function generateFixtures(
     throw new Error('Some matches already have recorded results, so fixtures can’t be regenerated.')
   }
 
-  const pool = buildMatchPool(confirmedPlayerIds, tournament.type, tournament.matchesPerPlayer)
+  const pool = buildMatchPool(confirmedPlayerIds, tournament.type)
   const scheduled = scheduleCourts(pool, tournament.courtIds)
 
   const batch = writeBatch(db)

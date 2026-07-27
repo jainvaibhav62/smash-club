@@ -23,7 +23,6 @@ export interface CreateTournamentInput {
   date: Date
   type: TournamentType
   maxPlayers: number
-  matchesPerPlayer: number
   pointsTarget: number
   locationId: string
   courtIds: string[]
@@ -58,7 +57,6 @@ export async function createTournament(input: CreateTournamentInput) {
     date: Timestamp.fromDate(input.date),
     type: input.type,
     maxPlayers: input.maxPlayers,
-    matchesPerPlayer: input.matchesPerPlayer,
     pointsTarget: input.pointsTarget,
     locationId: input.locationId,
     courtIds: input.courtIds,

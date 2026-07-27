@@ -54,7 +54,6 @@ export interface Tournament {
   date: Timestamp
   type: TournamentType
   maxPlayers: number
-  matchesPerPlayer: number
   pointsTarget: number
   locationId: string
   courtIds: string[]

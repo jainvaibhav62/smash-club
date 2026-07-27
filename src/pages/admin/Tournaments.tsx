@@ -17,7 +17,6 @@ export function AdminTournamentsPage() {
   const [date, setDate] = useState('')
   const [type, setType] = useState<TournamentType>('singles')
   const [maxPlayers, setMaxPlayers] = useState(16)
-  const [matchesPerPlayer, setMatchesPerPlayer] = useState(4)
   const [pointsTarget, setPointsTarget] = useState(21)
   const [locationId, setLocationId] = useState('')
   const [selectedCourtIds, setSelectedCourtIds] = useState<string[]>([])
@@ -76,7 +75,6 @@ export function AdminTournamentsPage() {
         date: new Date(date),
         type,
         maxPlayers,
-        matchesPerPlayer,
         pointsTarget,
         locationId,
         courtIds: selectedCourtIds,
@@ -186,19 +184,6 @@ export function AdminTournamentsPage() {
               min={2}
               value={maxPlayers}
               onChange={(e) => setMaxPlayers(Number(e.target.value))}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Matches per player (target)
-            </span>
-            <input
-              type="number"
-              min={1}
-              value={matchesPerPlayer}
-              onChange={(e) => setMatchesPerPlayer(Number(e.target.value))}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
           </label>
