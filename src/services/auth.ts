@@ -72,6 +72,18 @@ export async function fetchPublicProfile(uid: string): Promise<PublicProfile | n
   return snapshot.exists() ? ({ uid: snapshot.id, ...snapshot.data() } as PublicProfile) : null
 }
 
+/** Batch-fetch public profiles, e.g. to resolve player names for a fixture list. */
+export async function fetchPublicProfiles(uids: string[]): Promise<Record<string, PublicProfile>> {
+  const uniqueIds = [...new Set(uids)]
+  const profiles = await Promise.all(uniqueIds.map((uid) => fetchPublicProfile(uid)))
+  const map: Record<string, PublicProfile> = {}
+  uniqueIds.forEach((uid, i) => {
+    const profile = profiles[i]
+    if (profile) map[uid] = profile
+  })
+  return map
+}
+
 export async function updateUserProfile(uid: string, updates: Partial<UserProfile>) {
   await setDoc(doc(db, 'users', uid), updates, { merge: true })
 

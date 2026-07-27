@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -43,6 +44,11 @@ export async function deleteLocation(id: string) {
 export async function listCourtsForLocation(locationId: string): Promise<Court[]> {
   const snapshot = await getDocs(query(courtsRef, where('locationId', '==', locationId)))
   return snapshot.docs.map((d) => d.data())
+}
+
+export async function getCourtsByIds(courtIds: string[]): Promise<Court[]> {
+  const snapshots = await Promise.all(courtIds.map((id) => getDoc(doc(courtsRef, id))))
+  return snapshots.filter((s) => s.exists()).map((s) => s.data())
 }
 
 export async function createCourt(locationId: string, name: string) {

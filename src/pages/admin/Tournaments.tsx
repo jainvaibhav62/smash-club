@@ -21,6 +21,9 @@ export function AdminTournamentsPage() {
   const [pointsTarget, setPointsTarget] = useState(21)
   const [locationId, setLocationId] = useState('')
   const [selectedCourtIds, setSelectedCourtIds] = useState<string[]>([])
+  const [registrationOpensAt, setRegistrationOpensAt] = useState('')
+  const [registrationClosesAt, setRegistrationClosesAt] = useState('')
+  const [formError, setFormError] = useState('')
 
   async function load() {
     setLoading(true)
@@ -46,25 +49,52 @@ export function AdminTournamentsPage() {
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
-    if (!profile || !name.trim() || !date || !locationId || selectedCourtIds.length === 0) return
+    setFormError('')
+    if (
+      !profile ||
+      !name.trim() ||
+      !date ||
+      !locationId ||
+      selectedCourtIds.length === 0 ||
+      !registrationOpensAt ||
+      !registrationClosesAt
+    ) {
+      return
+    }
+    const opensAt = new Date(registrationOpensAt)
+    const closesAt = new Date(registrationClosesAt)
+    if (closesAt <= opensAt) {
+      setFormError('Registration close time must be after the open time.')
+      return
+    }
+
     setSubmitting(true)
-    await createTournament({
-      name: name.trim(),
-      date: new Date(date),
-      type,
-      maxPlayers,
-      matchesPerPlayer,
-      pointsTarget,
-      locationId,
-      courtIds: selectedCourtIds,
-      createdBy: profile.uid,
-    })
-    setName('')
-    setDate('')
-    setLocationId('')
-    setSelectedCourtIds([])
-    await load()
-    setSubmitting(false)
+    try {
+      await createTournament({
+        name: name.trim(),
+        date: new Date(date),
+        type,
+        maxPlayers,
+        matchesPerPlayer,
+        pointsTarget,
+        locationId,
+        courtIds: selectedCourtIds,
+        createdBy: profile.uid,
+        registrationOpensAt: opensAt,
+        registrationClosesAt: closesAt,
+      })
+      setName('')
+      setDate('')
+      setLocationId('')
+      setSelectedCourtIds([])
+      setRegistrationOpensAt('')
+      setRegistrationClosesAt('')
+      await load()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create tournament.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function toggleCourt(courtId: string) {
@@ -165,6 +195,32 @@ export function AdminTournamentsPage() {
 
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Registration opens
+            </span>
+            <input
+              type="datetime-local"
+              value={registrationOpensAt}
+              onChange={(e) => setRegistrationOpensAt(e.target.value)}
+              required
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Registration closes
+            </span>
+            <input
+              type="datetime-local"
+              value={registrationClosesAt}
+              onChange={(e) => setRegistrationClosesAt(e.target.value)}
+              required
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Location
             </span>
             <select
@@ -217,6 +273,9 @@ export function AdminTournamentsPage() {
           >
             {submitting ? 'Creating…' : 'Create tournament'}
           </button>
+          {formError && (
+            <p className="text-sm text-red-600 dark:text-red-400 sm:col-span-2">{formError}</p>
+          )}
         </form>
       </div>
 
@@ -240,7 +299,7 @@ export function AdminTournamentsPage() {
                 to={`/admin/tournaments/${tournament.id}/registrations`}
                 className="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
-                Registrations
+                Manage
               </Link>
             </li>
           ))}

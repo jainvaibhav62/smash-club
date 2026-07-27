@@ -26,6 +26,16 @@ export interface CreateTournamentInput {
   locationId: string
   courtIds: string[]
   createdBy: string
+  registrationOpensAt: Date
+  registrationClosesAt: Date
+}
+
+export type RegistrationPhase = 'not_open' | 'open' | 'closed'
+
+export function getRegistrationPhase(tournament: Tournament, now = new Date()): RegistrationPhase {
+  if (now < tournament.registrationOpensAt.toDate()) return 'not_open'
+  if (now > tournament.registrationClosesAt.toDate()) return 'closed'
+  return 'open'
 }
 
 export async function listTournaments(): Promise<Tournament[]> {
@@ -50,6 +60,8 @@ export async function createTournament(input: CreateTournamentInput) {
     locationId: input.locationId,
     courtIds: input.courtIds,
     status: 'registration_open',
+    registrationOpensAt: Timestamp.fromDate(input.registrationOpensAt),
+    registrationClosesAt: Timestamp.fromDate(input.registrationClosesAt),
     createdBy: input.createdBy,
     createdAt: serverTimestamp(),
   } as unknown as Tournament)

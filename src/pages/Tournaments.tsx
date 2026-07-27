@@ -1,15 +1,36 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { listTournaments } from '../services/tournaments'
-import { listRegistrationsForUser, registerForTournament } from '../services/registrations'
-import type { Registration, Tournament } from '../types'
+import { FixturesList } from '../components/FixturesList'
+import { fetchPublicProfiles } from '../services/auth'
+import { listMatchesForTournament } from '../services/fixtures'
+import { getCourtsByIds } from '../services/locations'
+import {
+  listRegistrationsForTournament,
+  listRegistrationsForUser,
+  registerForTournament,
+  waitlistPosition,
+  withdrawRegistration,
+} from '../services/registrations'
+import { getRegistrationPhase, listTournaments } from '../services/tournaments'
+import type { Court, Match, PublicProfile, Registration, Tournament } from '../types'
+
+const NOT_OPEN_MESSAGE = (opensAt: Date) =>
+  `🏸 Hold your shuttlecocks! Registration opens ${opensAt.toLocaleString()}. The sign-up sheet is still in witness protection until then.`
 
 export function TournamentsPage() {
   const { profile } = useAuth()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [registrations, setRegistrations] = useState<Registration[]>([])
+  const [waitlistPositions, setWaitlistPositions] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
-  const [registeringId, setRegisteringId] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [expandedFixtures, setExpandedFixtures] = useState<string | null>(null)
+  const [fixtureData, setFixtureData] = useState<{
+    matches: Match[]
+    courts: Court[]
+    profiles: Record<string, PublicProfile>
+  } | null>(null)
+  const [fixturesLoading, setFixturesLoading] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -19,6 +40,17 @@ export function TournamentsPage() {
     ])
     setTournaments(tournamentList)
     setRegistrations(myRegistrations)
+
+    const waitlistedRegs = myRegistrations.filter((r) => r.status === 'waitlisted')
+    const positions: Record<string, number> = {}
+    await Promise.all(
+      waitlistedRegs.map(async (r) => {
+        const tournamentRegs = await listRegistrationsForTournament(r.tournamentId)
+        const pos = waitlistPosition(tournamentRegs, r.userId)
+        if (pos) positions[r.tournamentId] = pos
+      }),
+    )
+    setWaitlistPositions(positions)
     setLoading(false)
   }
 
@@ -29,10 +61,35 @@ export function TournamentsPage() {
 
   async function handleRegister(tournamentId: string) {
     if (!profile) return
-    setRegisteringId(tournamentId)
+    setBusyId(tournamentId)
     await registerForTournament(tournamentId, profile.uid)
     await load()
-    setRegisteringId(null)
+    setBusyId(null)
+  }
+
+  async function handleWithdraw(registrationId: string, tournamentId: string) {
+    setBusyId(tournamentId)
+    await withdrawRegistration(registrationId)
+    await load()
+    setBusyId(null)
+  }
+
+  async function toggleFixtures(tournament: Tournament) {
+    if (expandedFixtures === tournament.id) {
+      setExpandedFixtures(null)
+      setFixtureData(null)
+      return
+    }
+    setExpandedFixtures(tournament.id)
+    setFixturesLoading(true)
+    const [matches, courts] = await Promise.all([
+      listMatchesForTournament(tournament.id),
+      getCourtsByIds(tournament.courtIds),
+    ])
+    const involvedIds = matches.flatMap((m) => [...m.teamA, ...m.teamB])
+    const profiles = await fetchPublicProfiles(involvedIds)
+    setFixtureData({ matches, courts, profiles })
+    setFixturesLoading(false)
   }
 
   if (loading) return <p className="text-slate-500 dark:text-slate-400">Loading tournaments…</p>
@@ -46,37 +103,90 @@ export function TournamentsPage() {
       <ul className="space-y-3">
         {tournaments.map((tournament) => {
           const registration = registrations.find((r) => r.tournamentId === tournament.id)
+          const isActive = registration?.status === 'confirmed' || registration?.status === 'waitlisted'
+          const phase = getRegistrationPhase(tournament)
+          const opensAt = tournament.registrationOpensAt.toDate()
+
           return (
             <li
               key={tournament.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+              className={`rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 ${
+                phase === 'not_open' ? 'opacity-60' : ''
+              }`}
             >
-              <div>
-                <h2 className="font-semibold text-slate-900 dark:text-slate-100">{tournament.name}</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {tournament.date?.toDate?.().toLocaleDateString() ?? ''} · {tournament.type} ·{' '}
-                  {tournament.maxPlayers} players max
-                </p>
-                <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  {tournament.status.replace('_', ' ')}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold text-slate-900 dark:text-slate-100">{tournament.name}</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {tournament.date?.toDate?.().toLocaleDateString() ?? ''} · {tournament.type} ·{' '}
+                    {tournament.maxPlayers} players max
+                  </p>
+                </div>
+
+                {phase === 'not_open' && !isActive && (
+                  <span className="rounded-md bg-slate-100 px-3 py-1.5 text-sm text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    Not open yet
+                  </span>
+                )}
+
+                {phase !== 'not_open' &&
+                  (isActive ? (
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        {registration!.status === 'confirmed'
+                          ? "You're confirmed! 🎉"
+                          : `Waitlisted (#${waitlistPositions[tournament.id] ?? '?'})`}
+                      </span>
+                      <button
+                        onClick={() => handleWithdraw(registration!.id, tournament.id)}
+                        disabled={busyId === tournament.id}
+                        className="rounded-md bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/30 dark:text-red-300"
+                      >
+                        Withdraw
+                      </button>
+                    </div>
+                  ) : phase === 'open' ? (
+                    <button
+                      onClick={() => handleRegister(tournament.id)}
+                      disabled={busyId === tournament.id}
+                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      {busyId === tournament.id ? 'Registering…' : 'Register'}
+                    </button>
+                  ) : (
+                    <span className="rounded-md bg-slate-100 px-3 py-1.5 text-sm text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                      Registration closed
+                    </span>
+                  ))}
               </div>
 
-              {registration ? (
-                <span className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  {registration.status === 'pending' && 'Registration pending'}
-                  {registration.status === 'confirmed' && 'You’re confirmed'}
-                  {registration.status === 'rejected' && 'Registration rejected'}
-                  {registration.status === 'withdrawn' && 'Withdrawn'}
-                </span>
-              ) : (
-                <button
-                  onClick={() => handleRegister(tournament.id)}
-                  disabled={registeringId === tournament.id || tournament.status !== 'registration_open'}
-                  className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {registeringId === tournament.id ? 'Registering…' : 'Register'}
-                </button>
+              {phase === 'not_open' && (
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  {NOT_OPEN_MESSAGE(opensAt)}
+                </p>
+              )}
+
+              <button
+                onClick={() => toggleFixtures(tournament)}
+                className="mt-3 text-sm font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+              >
+                {expandedFixtures === tournament.id ? 'Hide fixtures' : 'View fixtures'}
+              </button>
+
+              {expandedFixtures === tournament.id && (
+                <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800">
+                  {fixturesLoading ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Loading fixtures…</p>
+                  ) : (
+                    fixtureData && (
+                      <FixturesList
+                        matches={fixtureData.matches}
+                        courts={fixtureData.courts}
+                        profiles={fixtureData.profiles}
+                      />
+                    )
+                  )}
+                </div>
               )}
             </li>
           )

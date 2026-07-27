@@ -59,13 +59,18 @@ export interface Tournament {
   locationId: string
   courtIds: string[]
   status: TournamentStatus
+  registrationOpensAt: Timestamp
+  registrationClosesAt: Timestamp
   champion?: string
   runnerUp?: string
   createdBy: string
   createdAt: Timestamp
 }
 
-export type RegistrationStatus = 'pending' | 'confirmed' | 'rejected' | 'withdrawn'
+/** confirmed: counts toward maxPlayers. waitlisted: registered after capacity was full.
+ * withdrawn: player backed out. removed: admin kicked them. Both free a confirmed slot
+ * and trigger promoting the earliest waitlisted registration. */
+export type RegistrationStatus = 'confirmed' | 'waitlisted' | 'withdrawn' | 'removed'
 
 export interface Registration {
   id: string
@@ -90,6 +95,8 @@ export interface Match {
   scoreB: number | null
   winner: 'A' | 'B' | null
   queuePriority: number
+  round: number
+  matchNumber: number
   startedAt?: Timestamp
   completedAt?: Timestamp
 }

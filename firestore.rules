@@ -59,10 +59,25 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Auto-confirm/waitlist by capacity (no manual admin approval step) —
+    // the client decides confirmed vs waitlisted based on a live count of
+    // confirmed registrations (see docs/architecture.md for why there's no
+    // denormalized counter). Withdrawing/being removed frees a slot and the
+    // withdrawing/removing user's own client promotes the next waitlisted
+    // registration — which means it needs to flip *someone else's* doc from
+    // waitlisted to confirmed. That's the narrow third clause below: any
+    // signed-in user may do exactly that one transition and nothing else.
     match /registrations/{registrationId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(request.resource.data.userId) && request.resource.data.status == 'pending';
-      allow update: if isAdmin() || (isOwner(resource.data.userId) && request.resource.data.status == 'withdrawn');
+      allow create: if isOwner(request.resource.data.userId) &&
+        request.resource.data.status in ['confirmed', 'waitlisted'];
+      allow update: if isAdmin() ||
+        (isOwner(resource.data.userId) &&
+         request.resource.data.status in ['confirmed', 'waitlisted', 'withdrawn']) ||
+        (isSignedIn() &&
+         resource.data.status == 'waitlisted' &&
+         request.resource.data.status == 'confirmed' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
       allow delete: if isAdmin();
     }
 

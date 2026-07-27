@@ -2,7 +2,9 @@
 
 Target scale: small club sessions, roughly **8–32 confirmed players** per tournament. The design below is a good fit for that range; it is not intended to schedule hundreds of concurrent players (see "Scaling beyond this" at the bottom).
 
-The spec asks for continuous-queue match flow (a court starts its next match the instant it's free, not synchronized rounds), so fixture generation is split into two independent stages: **what matches should happen** (Stage A, run once) and **when/where they happen** (Stage B, run continuously).
+The spec asks for continuous-queue match flow (a court starts its next match the instant it's free, not synchronized rounds), so fixture generation is split into two independent stages: **what matches should happen** (Stage A) and **when/where they happen** (Stage B).
+
+**Implementation status**: Stage A is fully implemented as designed below. Stage B is currently **round-based** rather than truly live/continuous — see "Stage B" for why and what the upgrade path looks like. Both run in one shot, triggered manually by the admin's "Display Fixtures" button (`src/services/fixtures.ts` → `generateFixtures`), which also handles "redo" (a player was removed, admin wants a fresh schedule): it deletes any existing non-locked/non-completed matches for the tournament and regenerates from the current confirmed player list.
 
 ## Stage A — Match pool generation
 
@@ -31,27 +33,25 @@ Runs once when the admin clicks "Generate Fixtures" on a tournament with confirm
    Lower is better. `w1`/`w2` penalize repeat matchups/partnerships; `w3` pulls the schedule toward players who've played the fewest matches so far.
 3. Commit the lowest-cost candidate to the pool (randomized tie-break among near-equal candidates, so regenerating fixtures for the same field doesn't always produce an identical schedule). Update all three counters.
 
-**Output**: a set of `matches` docs, `status: 'pending'`, `courtId: null`.
+**Output**: an in-memory list of `{ teamA, teamB }` pairings (`buildMatchPool` in `src/services/fixtures.ts`) — nothing is written to Firestore until Stage B has also assigned courts, so the two stages produce one batch write together.
 
 ### Why sampling instead of literal exhaustive enumeration
 
 The original ask was to "generate all possible player combinations." For doubles at, say, 24 players, the number of valid team-vs-team matches is large enough that materializing every combination before choosing is wasted work — the greedy scorer never needs to see more than a representative batch to make a good choice at each step. Sampling a batch each iteration (e.g. a few hundred candidates) achieves the same fairness outcome — equal match counts, minimized repeats — without the memory/CPU cost of full enumeration. For small singles fields (≤16 players) the candidate space is small enough that "sample a batch" and "enumerate everything" are effectively the same thing anyway.
 
-## Stage B — Live court scheduler
+## Stage B — Court scheduler (round-based, this pass)
 
-Runs every time a court becomes free (tournament start counts as every court being free at once).
+True live/continuous scheduling — reassigning a court the instant a match actually finishes — needs match-completion events to react to, and score entry doesn't exist yet in this app. So Stage B currently runs once, as a batch, immediately after Stage A, rather than being re-invoked per court-freeing event. `scheduleCourts` in `src/services/fixtures.ts`:
 
-1. From the pending pool, filter to matches where **all** 2–4 players are currently free (not `in_progress` on another court).
-2. Rank the eligible matches by, in order:
-   1. Longest time since each involved player's last completed match (maximizes rest, avoids consecutive matches for the same player).
-   2. Fewest matches played so far among involved players (keeps the "roughly equal matches" property live during the event, not just on paper).
-   3. Pool insertion order (stable tie-break).
-3. Assign the top-ranked match to the newly-free court: set `courtId`, flip `status` to `scheduled` then `in_progress` when players check in.
+1. Greedily fills each "round" (cap = number of courts) with matches from the Stage A output whose players aren't already playing elsewhere in that round — so no player is ever double-booked within a round, which is what actually delivers "avoid consecutive matches"/rest balancing here: a player can appear in back-to-back rounds, but never twice in the *same* round.
+2. Rotates the starting court index by round number (`courtIds[(round + i) % courtIds.length]`), so players cycle across different named courts over the course of the tournament rather than always landing on the same one.
+3. Writes `round` and `matchNumber` on each match for the fixture display to group/order by.
 
-This same function is reused for the admin-flexibility requirements:
-- **Withdrawal before/during the tournament**: drop that player's remaining `pending` matches from the pool; optionally re-run Stage A for the remaining field if enough matches were lost to unbalance the schedule.
-- **Manual court/player swap**: a direct mutation of `courtId` / `teamA` / `teamB` on a `pending` or `scheduled` match — Stage B's ranking just picks up the edited state on its next run.
-- **Locking**: matches with `status: 'locked'` (post-completion) are excluded from all pool operations and edits, satisfying "prevent accidental changes."
+**Upgrade path to true live scheduling** (once score entry exists): keep Stage A exactly as-is (it already produces a fair, unordered match pool); replace `scheduleCourts` with a function triggered on match completion that re-ranks the *remaining* pool by rest time and picks the next match for the court that just freed up, per the original design. Nothing about the data model or Stage A needs to change for this.
+
+Admin-flexibility notes with the current implementation:
+- **Withdrawal/removal**: doesn't auto-regenerate fixtures — the admin's "Display Fixtures" button is idempotent and safe to click again (see below), so removing a player and re-clicking it is the intended "redo" flow.
+- **Locking**: `generateFixtures` refuses to run at all if any existing match is `completed` or `locked`, rather than trying to regenerate around them — since score entry isn't built yet, this never actually triggers today, but it's there so a future version doesn't silently discard results.
 
 ## Scaling beyond this
 
