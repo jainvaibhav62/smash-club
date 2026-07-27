@@ -12,7 +12,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function NavBar() {
   const navigate = useNavigate()
-  const { profile, isAdmin, signIn, signOutUser } = useAuth()
+  const { profile, isAdmin, signOutUser } = useAuth()
   const { theme, toggleTheme } = useTheme()
 
   async function handleSignOut() {
@@ -82,13 +82,13 @@ export function NavBar() {
           ) : (
             <div className="flex gap-2">
               <button
-                onClick={() => signIn()}
+                onClick={() => navigate('/signup')}
                 className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
               >
                 New Member? Sign Up
               </button>
               <button
-                onClick={() => signIn()}
+                onClick={() => navigate('/signin')}
                 className="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
                 Already a member? Log In

@@ -1,5 +1,9 @@
 import {
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
   type User,
@@ -15,6 +19,40 @@ export function subscribeToAuthState(callback: (user: User | null) => void) {
 export async function signInWithGoogle(): Promise<{ profile: UserProfile; isNew: boolean }> {
   const { user } = await signInWithPopup(auth, googleProvider)
   return ensureUserProfile(user)
+}
+
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  displayName: string,
+  skillLevel: UserProfile['skillLevel'],
+): Promise<void> {
+  const { user } = await createUserWithEmailAndPassword(auth, email, password)
+  await sendEmailVerification(user)
+
+  // Create profile with email verified flag
+  const newProfile = {
+    displayName,
+    photoURL: '',
+    email,
+    skillLevel,
+    gender: '',
+    playingHand: 'right' as const,
+    role: 'player' as const,
+    emailVerified: false,
+    createdAt: serverTimestamp(),
+  }
+  await setDoc(doc(db, 'users', user.uid), newProfile)
+  await setDoc(doc(db, 'publicProfiles', user.uid), toPublicProfile({ displayName, photoURL: '', skillLevel }))
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<{ profile: UserProfile; isNew: boolean }> {
+  const { user } = await signInWithEmailAndPassword(auth, email, password)
+  return ensureUserProfile(user)
+}
+
+export async function sendPasswordReset(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email)
 }
 
 export async function signOut() {

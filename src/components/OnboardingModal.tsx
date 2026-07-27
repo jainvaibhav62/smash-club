@@ -22,7 +22,7 @@ export function OnboardingModal() {
     setSaving(true)
     setError('')
     try {
-      await updateUserProfile(profile!.uid, { displayName, skillLevel })
+      await updateUserProfile(profile!.uid, { displayName, skillLevel, emailVerified: true })
       await refreshProfile()
       dismissOnboarding()
       navigate('/')

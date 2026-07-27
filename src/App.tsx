@@ -5,6 +5,8 @@ import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { HomePage } from './pages/Home'
 import { ProfilePage } from './pages/Profile'
+import { SignUpPage } from './pages/SignUp'
+import { SignInPage } from './pages/SignIn'
 import { TournamentsPage } from './pages/Tournaments'
 import { LeaderboardPage } from './pages/Leaderboard'
 import { AdminLocationsPage } from './pages/admin/Locations'
@@ -20,6 +22,8 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/signup" element={<SignUpPage />} />
+              <Route path="/signin" element={<SignInPage />} />
               <Route
                 path="/profile"
                 element={

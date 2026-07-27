@@ -29,7 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user) {
         const { profile: userProfile, isNew } = await ensureUserProfile(user)
         setProfile(userProfile)
-        if (isNew) setShowOnboarding(true)
+        // Show onboarding if new user OR if email verification is pending (email signup users)
+        const needsOnboarding = isNew || (userProfile.emailVerified === false)
+        if (needsOnboarding) setShowOnboarding(true)
       } else {
         setProfile(null)
         setShowOnboarding(false)

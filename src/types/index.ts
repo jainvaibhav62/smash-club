@@ -14,6 +14,7 @@ export interface UserProfile {
   gender: string
   playingHand: PlayingHand
   role: Role
+  emailVerified?: boolean
   createdAt: Timestamp
 }
 
