@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { signUpWithEmail } from '../services/auth'
+import { signUpWithEmail, signInWithGoogle } from '../services/auth'
 import type { SkillLevel } from '../types'
 
 export function SignUpPage() {
@@ -12,6 +12,17 @@ export function SignUpPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [verificationSent, setVerificationSent] = useState(false)
+
+  async function handleGoogleSignUp() {
+    setError('')
+    try {
+      await signInWithGoogle()
+      navigate('/')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Google sign-up failed'
+      setError(errorMessage)
+    }
+  }
 
   async function handleSignUp(event: React.FormEvent) {
     event.preventDefault()
@@ -155,6 +166,17 @@ export function SignUpPage() {
           {loading ? 'Creating account...' : 'Sign up'}
         </button>
       </form>
+
+      <div className="mt-4 space-y-3 border-t border-slate-200 pt-4 dark:border-slate-700">
+        <p className="text-center text-xs text-slate-500 dark:text-slate-400">Or sign up with</p>
+        <button
+          onClick={handleGoogleSignUp}
+          disabled={loading}
+          className="w-full rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          🔍 Sign up with Google
+        </button>
+      </div>
 
       <p className="mt-4 text-center text-sm text-slate-600 dark:text-slate-300">
         Already have an account?{' '}

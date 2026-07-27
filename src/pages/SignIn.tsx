@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { signInWithEmail } from '../services/auth'
+import { signInWithEmail, signInWithGoogle } from '../services/auth'
 
 export function SignInPage() {
   const navigate = useNavigate()
@@ -8,6 +8,17 @@ export function SignInPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  async function handleGoogleSignIn() {
+    setError('')
+    try {
+      await signInWithGoogle()
+      navigate('/')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Google sign-in failed'
+      setError(errorMessage)
+    }
+  }
 
   async function handleSignIn(event: React.FormEvent) {
     event.preventDefault()
@@ -86,15 +97,36 @@ export function SignInPage() {
         </button>
       </form>
 
-      <p className="mt-4 text-center text-sm text-slate-600 dark:text-slate-300">
-        Don't have an account?{' '}
+      <div className="mt-4 space-y-3 border-t border-slate-200 pt-4 dark:border-slate-700">
+        <p className="text-center text-xs text-slate-500 dark:text-slate-400">Or sign in with</p>
         <button
-          onClick={() => navigate('/signup')}
-          className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+          className="w-full rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
         >
-          Sign up
+          🔍 Sign in with Google
         </button>
-      </p>
+      </div>
+
+      <div className="mt-4 space-y-2 text-center text-sm">
+        <p className="text-slate-600 dark:text-slate-300">
+          <button
+            onClick={() => navigate('/forgot-password')}
+            className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+          >
+            Forgot password?
+          </button>
+        </p>
+        <p className="text-slate-600 dark:text-slate-300">
+          Don't have an account?{' '}
+          <button
+            onClick={() => navigate('/signup')}
+            className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+          >
+            Sign up
+          </button>
+        </p>
+      </div>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { HomePage } from './pages/Home'
 import { ProfilePage } from './pages/Profile'
 import { SignUpPage } from './pages/SignUp'
 import { SignInPage } from './pages/SignIn'
+import { ForgotPasswordPage } from './pages/ForgotPassword'
 import { TournamentsPage } from './pages/Tournaments'
 import { LeaderboardPage } from './pages/Leaderboard'
 import { AdminLocationsPage } from './pages/admin/Locations'
@@ -24,6 +25,7 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/signup" element={<SignUpPage />} />
               <Route path="/signin" element={<SignInPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route
                 path="/profile"
                 element={
