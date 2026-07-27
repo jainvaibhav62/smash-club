@@ -10,31 +10,47 @@ export function LandingPage() {
   const [profiles, setProfiles] = useState<Record<string, PublicProfile>>({})
   const [upcomingTournaments, setUpcomingTournaments] = useState<Tournament[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     async function load() {
-      setLoading(true)
-      const [matches, tournaments] = await Promise.all([
-        listAllCompletedMatches(),
-        listTournaments(),
-      ])
+      try {
+        setLoading(true)
+        setError('')
+        const [matches, tournaments] = await Promise.all([
+          listAllCompletedMatches(),
+          listTournaments(),
+        ])
 
-      const leaderboard = computeAllTimeLeaderboard(matches)
-      setLeaderboardRows(leaderboard)
-      setProfiles(await fetchPublicProfiles(leaderboard.map((r) => r.userId)))
+        const leaderboard = computeAllTimeLeaderboard(matches)
+        setLeaderboardRows(leaderboard)
+        setProfiles(await fetchPublicProfiles(leaderboard.map((r) => r.userId)))
 
-      const now = new Date()
-      const upcoming = tournaments
-        .filter((t) => t.date?.toDate() > now)
-        .sort((a, b) => (a.date?.toMillis() ?? 0) - (b.date?.toMillis() ?? 0))
-        .slice(0, 5)
-      setUpcomingTournaments(upcoming)
-      setLoading(false)
+        const now = new Date()
+        const upcoming = tournaments
+          .filter((t) => t.date?.toDate() > now)
+          .sort((a, b) => (a.date?.toMillis() ?? 0) - (b.date?.toMillis() ?? 0))
+          .slice(0, 5)
+        setUpcomingTournaments(upcoming)
+      } catch (err) {
+        console.error('Error loading landing page:', err)
+        setError('Failed to load data. Please refresh the page.')
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])
 
   if (loading) return <p className="text-slate-500 dark:text-slate-400">Loading…</p>
+
+  if (error) {
+    return (
+      <div className="rounded-md bg-red-50 p-4 text-red-600 dark:bg-red-950/30 dark:text-red-400">
+        {error}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-12">

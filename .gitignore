@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+# GitHub Pages deployment: docs folder IS committed (built from dist)
+!docs/
 .env
 .env.*
 !.env.example
