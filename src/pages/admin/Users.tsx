@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -6,6 +7,7 @@ import { deleteUserDataDirectly } from '../../services/userManagement'
 import type { UserProfile } from '../../types'
 
 export function AdminUsersPage() {
+  const navigate = useNavigate()
   const { profile } = useAuth()
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,7 +103,8 @@ export function AdminUsersPage() {
             {users.map((user) => (
               <tr
                 key={user.uid}
-                className="border-b border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50"
+                className="border-b border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50 cursor-pointer"
+                onClick={() => navigate(`/admin/users/${user.uid}`)}
               >
                 <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
                   {user.displayName}
@@ -120,7 +123,7 @@ export function AdminUsersPage() {
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                   {user.createdAt?.toDate().toLocaleDateString() ?? '—'}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => handleDeleteUser(user.uid, user.displayName)}
                     disabled={deleting === user.uid || user.uid === profile?.uid}
