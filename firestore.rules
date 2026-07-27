@@ -38,10 +38,11 @@ service cloud.firestore {
     }
 
     // Public-safe subset of a profile (no email) — world-readable for the
-    // public landing page to show leaderboard previews; writeablde by owner only.
+    // public landing page to show leaderboard previews; writeable by owner or admin for deletion.
     match /publicProfiles/{userId} {
       allow read: if true;
       allow write: if isOwner(userId) && hasValidPhoto();
+      allow delete: if isAdmin();
     }
 
     match /locations/{locationId} {

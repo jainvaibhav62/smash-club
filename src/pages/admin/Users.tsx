@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
-import { deleteUserAccount } from '../../services/verification'
+import { deleteUserDataDirectly } from '../../services/userManagement'
 import type { UserProfile } from '../../types'
 
 export function AdminUsersPage() {
@@ -31,7 +31,7 @@ export function AdminUsersPage() {
   }
 
   async function handleDeleteUser(uid: string, displayName: string) {
-    if (!window.confirm(`Delete user "${displayName}"? This will delete all their data.`)) {
+    if (!window.confirm(`Delete user "${displayName}"? This will delete all their data (profile, registrations, matches).`)) {
       return
     }
 
@@ -39,7 +39,7 @@ export function AdminUsersPage() {
     setError('')
 
     try {
-      await deleteUserAccount(uid)
+      await deleteUserDataDirectly(uid)
       setUsers(users.filter((u) => u.uid !== uid))
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete user'
@@ -59,6 +59,10 @@ export function AdminUsersPage() {
         <p className="text-sm text-slate-600 dark:text-slate-300">
           {users.length} total user{users.length !== 1 ? 's' : ''}
         </p>
+      </div>
+
+      <div className="rounded-md bg-blue-50 p-3 text-sm text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+        Deletes all user data: profile, registrations, and matches. To also delete their Firebase Auth account, use the Firebase Console.
       </div>
 
       {error && (

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { updateUserProfile } from '../services/auth'
 import { resizeImageToDataUrl } from '../services/photo'
-import { deleteUserAccount } from '../services/verification'
+import { deleteUserDataDirectly } from '../services/userManagement'
 import type { PlayingHand, SkillLevel } from '../types'
 
 export function ProfilePage() {
@@ -66,7 +66,7 @@ export function ProfilePage() {
     setError('')
 
     try {
-      await deleteUserAccount(profile!.uid)
+      await deleteUserDataDirectly(profile!.uid)
       navigate('/')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete user'

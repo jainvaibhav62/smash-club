@@ -84,8 +84,10 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
 
   try {
     // Check if requester is admin
-    const requesterToken = await admin.auth().verifyIdToken(context.auth.token);
+    console.log(`Delete request for ${uid} from ${context.auth.uid}`);
+
     const requesterDoc = await admin.firestore().collection('users').doc(context.auth.uid).get();
+    console.log(`Requester role: ${requesterDoc.data()?.role}`);
 
     if (requesterDoc.data()?.role !== 'admin') {
       throw new functions.https.HttpsError('permission-denied', 'Only admins can delete users');
@@ -134,16 +136,22 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
     // Delete Firebase Auth account
     await admin.auth().deleteUser(uid);
 
+    console.log(`User ${uid} deleted successfully`);
     return {
       success: true,
       message: `User ${uid} deleted successfully`,
     };
   } catch (error) {
     console.error('Error deleting user:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
     if (error.code) {
       throw error; // Re-throw HttpsError
     }
-    throw new functions.https.HttpsError('internal', 'Failed to delete user');
+    throw new functions.https.HttpsError('internal', `Failed to delete user: ${error.message}`);
   }
 });
 
