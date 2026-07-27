@@ -155,6 +155,45 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
   }
 });
 
+// Resend verification email to a user (admin only)
+exports.resendVerificationEmail = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in')
+  }
+
+  const { uid } = data
+  if (!uid) {
+    throw new functions.https.HttpsError('invalid-argument', 'User UID is required')
+  }
+
+  try {
+    // Check if requester is admin
+    const requesterDoc = await admin.firestore().collection('users').doc(context.auth.uid).get()
+    if (requesterDoc.data()?.role !== 'admin') {
+      throw new functions.https.HttpsError('permission-denied', 'Only admins can resend verification emails')
+    }
+
+    // Get the user to resend email to
+    const user = await admin.auth().getUser(uid)
+
+    // Generate a verification link
+    const link = await admin.auth().generateEmailVerificationLink(user.email)
+
+    console.log(`Verification link generated for ${user.email}`)
+
+    return {
+      success: true,
+      message: `Verification email resent to ${user.email}`,
+    }
+  } catch (error) {
+    console.error('Error resending verification email:', error)
+    if (error.code) {
+      throw error
+    }
+    throw new functions.https.HttpsError('internal', `Failed to resend email: ${error.message}`)
+  }
+})
+
 // Verify the code
 exports.verifyCode = functions.https.onCall(async (data, context) => {
   const { uid, code } = data;

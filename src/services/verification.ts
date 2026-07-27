@@ -15,3 +15,8 @@ export async function deleteUserAccount(uid: string): Promise<void> {
   const deleteUser = httpsCallable(functions, 'deleteUser')
   await deleteUser({ uid })
 }
+
+export async function resendVerificationEmail(uid: string): Promise<void> {
+  const resendEmail = httpsCallable(functions, 'resendVerificationEmail')
+  await resendEmail({ uid })
+}
