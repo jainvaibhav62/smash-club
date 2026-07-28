@@ -17,6 +17,7 @@ import { AdminRegistrationsPage } from './pages/admin/Registrations'
 import { AdminFixturesPrintPage } from './pages/admin/FixturesPrint'
 import { AdminUsersPage } from './pages/admin/Users'
 import { AdminUserProfilePage } from './pages/admin/UserProfile'
+import { AdminAnnouncementsPage } from './pages/admin/Announcements'
 
 function App() {
   return (
@@ -75,6 +76,14 @@ function App() {
                 element={
                   <ProtectedRoute requireAdmin>
                     <AdminLocationsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/announcements"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <AdminAnnouncementsPage />
                   </ProtectedRoute>
                 }
               />

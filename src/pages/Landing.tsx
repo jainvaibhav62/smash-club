@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { TournamentStandings } from '../components/TournamentStandings'
+import { AnnouncementBanner } from '../components/AnnouncementBanner'
 import { fetchPublicProfiles } from '../services/auth'
 import { computeAllTimeLeaderboard, listAllCompletedMatches } from '../services/leaderboard'
 import { listTournaments } from '../services/tournaments'
-import type { LeaderboardRow, PublicProfile, Tournament } from '../types'
+import { getActiveAnnouncements } from '../services/announcements'
+import type { Announcement, LeaderboardRow, PublicProfile, Tournament } from '../types'
 
 export function LandingPage() {
   const [leaderboardRows, setLeaderboardRows] = useState<LeaderboardRow[]>([])
@@ -11,6 +13,7 @@ export function LandingPage() {
   const [upcomingTournaments, setUpcomingTournaments] = useState<Tournament[]>([])
   const [pastTournaments, setPastTournaments] = useState<Tournament[]>([])
   const [championNames, setChampionNames] = useState<Record<string, string>>({})
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -23,6 +26,15 @@ export function LandingPage() {
           listAllCompletedMatches(),
           listTournaments(),
         ])
+
+        // Announcements are optional — if they fail to load, continue without them
+        try {
+          const activeAnnouncements = await getActiveAnnouncements()
+          setAnnouncements(activeAnnouncements)
+        } catch (annErr) {
+          console.warn('Failed to load announcements:', annErr)
+          setAnnouncements([])
+        }
 
         const leaderboard = computeAllTimeLeaderboard(matches)
         setLeaderboardRows(leaderboard)
@@ -73,6 +85,14 @@ export function LandingPage() {
 
   return (
     <div className="space-y-12">
+      {announcements.length > 0 && (
+        <div className="space-y-2">
+          {announcements.map((ann) => (
+            <AnnouncementBanner key={ann.id} announcement={ann} />
+          ))}
+        </div>
+      )}
+
       {/* Hero section */}
       <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-emerald-400 via-blue-400 to-indigo-500 p-16 text-white shadow-lg">
         <div className="absolute -right-20 -top-20 text-9xl opacity-10">🏸</div>

@@ -192,3 +192,11 @@ export interface TopRival {
   headToHeadWins: number
   headToHeadLosses: number
 }
+
+export interface Announcement {
+  id: string
+  text: string
+  active: boolean
+  createdBy: string
+  createdAt: Timestamp
+}

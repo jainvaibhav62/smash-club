@@ -52,6 +52,9 @@ export function NavBar() {
                   <NavLink to="/admin/tournaments" className={linkClass}>
                     Manage
                   </NavLink>
+                  <NavLink to="/admin/announcements" className={linkClass}>
+                    Announcements
+                  </NavLink>
                 </>
               )}
             </nav>
