@@ -144,13 +144,16 @@ export function TournamentsPage() {
                           ? "You're confirmed! 🎉"
                           : `Waitlisted (#${waitlistPositions[tournament.id] ?? '?'})`}
                       </span>
-                      <button
-                        onClick={() => handleWithdraw(registration!.id, tournament.id)}
-                        disabled={busyId === tournament.id}
-                        className="rounded-md bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/30 dark:text-red-300"
-                      >
-                        Withdraw
-                      </button>
+                      {tournament.status !== 'completed' && (
+                        <button
+                          onClick={() => handleWithdraw(registration!.id, tournament.id)}
+                          disabled={busyId === tournament.id || phase === 'closed'}
+                          title={phase === 'closed' ? 'Registration deadline has passed' : ''}
+                          className="rounded-md bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/30 dark:text-red-300"
+                        >
+                          Withdraw
+                        </button>
+                      )}
                     </div>
                   ) : phase === 'open' ? (
                     <button
