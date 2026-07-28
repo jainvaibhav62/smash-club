@@ -24,15 +24,37 @@ export function HomePage() {
       setLoadingStats(true)
       const matches = await listAllCompletedMatches()
       const playerStats = computePlayerStats(profile!.uid, matches)
-      const recent = computeRecentMatches(profile!.uid, matches, 5)
+
+      // Collect all opponent IDs from recent matches
+      const recentCompleted = matches
+        .filter(
+          (m) =>
+            m.status === 'completed' &&
+            m.completedAt &&
+            (m.teamA.includes(profile!.uid) || m.teamB.includes(profile!.uid)),
+        )
+        .sort((a, b) => (b.completedAt?.toMillis() ?? 0) - (a.completedAt?.toMillis() ?? 0))
+        .slice(0, 5)
+
+      const opponentIds = new Set<string>()
+      recentCompleted.forEach((m) => {
+        const opponents = m.teamA.includes(profile!.uid) ? m.teamB : m.teamA
+        opponents.forEach((id) => opponentIds.add(id))
+      })
+
       const rivals = computeTopRivals(profile!.uid, matches, 3)
+      const rivalIds = rivals.map((r) => r.userId)
+
+      // Fetch profiles for all opponents and rivals
+      const allIds = Array.from(new Set([...opponentIds, ...rivalIds]))
+      const fetchedProfiles = await fetchPublicProfiles(allIds)
+
+      const recent = computeRecentMatches(profile!.uid, matches, fetchedProfiles, 5)
 
       setStats(playerStats)
       setRecentMatches(recent)
       setTopRivals(rivals)
-
-      const rivalIds = rivals.map((r) => r.userId)
-      setProfiles(await fetchPublicProfiles(rivalIds))
+      setProfiles(fetchedProfiles)
       setLoadingStats(false)
     }
     load()

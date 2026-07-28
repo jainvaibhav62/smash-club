@@ -129,6 +129,7 @@ export function computePlayerStats(userId: string, matches: Match[]): Leaderboar
 export function computeRecentMatches(
   userId: string,
   matches: Match[],
+  profiles: Record<string, { displayName: string }>,
   limit = 5,
 ): import('../types').RecentMatch[] {
   const completed = matches
@@ -147,9 +148,12 @@ export function computeRecentMatches(
     const scoreAgainst = onTeamA ? (m.scoreB ?? 0) : (m.scoreA ?? 0)
     const won = (onTeamA && m.winner === 'A') || (!onTeamA && m.winner === 'B')
     const opponents = onTeamA ? m.teamB : m.teamA
+    const opponentNames = opponents
+      .map((id) => profiles[id]?.displayName ?? 'Unknown')
+      .join(' & ')
     return {
       matchId: m.id,
-      opponentNames: opponents.join(' & '),
+      opponentNames,
       won,
       scoreFor,
       scoreAgainst,
