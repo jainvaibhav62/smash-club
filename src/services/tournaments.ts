@@ -15,6 +15,9 @@ import {
 import { db } from '../lib/firebase'
 import { converter } from './firestore'
 import type { Tournament, TournamentStatus, TournamentType } from '../types'
+import { listMatchesForTournament } from './fixtures'
+import { computeTournamentLeaderboard } from './leaderboard'
+import { listRegistrationsForTournament } from './registrations'
 
 const tournamentsRef = collection(db, 'tournaments').withConverter(converter<Tournament>())
 
@@ -69,7 +72,28 @@ export async function createTournament(input: CreateTournamentInput) {
 }
 
 export async function setTournamentStatus(id: string, status: TournamentStatus) {
-  await updateDoc(doc(db, 'tournaments', id), { status })
+  const updates: any = { status }
+
+  // If marking as completed, compute and set the champion
+  if (status === 'completed') {
+    const [matches, registrations] = await Promise.all([
+      listMatchesForTournament(id),
+      listRegistrationsForTournament(id),
+    ])
+
+    const confirmedPlayerIds = registrations
+      .filter((r) => r.status === 'confirmed')
+      .map((r) => r.userId)
+
+    if (confirmedPlayerIds.length > 0 && matches.length > 0) {
+      const leaderboard = computeTournamentLeaderboard(confirmedPlayerIds, matches)
+      if (leaderboard.length > 0) {
+        updates.champion = leaderboard[0].userId
+      }
+    }
+  }
+
+  await updateDoc(doc(db, 'tournaments', id), updates)
 }
 
 /** Delete a tournament and all its associated registrations and matches.

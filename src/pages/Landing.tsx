@@ -9,6 +9,8 @@ export function LandingPage() {
   const [leaderboardRows, setLeaderboardRows] = useState<LeaderboardRow[]>([])
   const [profiles, setProfiles] = useState<Record<string, PublicProfile>>({})
   const [upcomingTournaments, setUpcomingTournaments] = useState<Tournament[]>([])
+  const [pastTournaments, setPastTournaments] = useState<Tournament[]>([])
+  const [championNames, setChampionNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -28,10 +30,27 @@ export function LandingPage() {
 
         const now = new Date()
         const upcoming = tournaments
-          .filter((t) => t.date?.toDate() > now)
+          .filter((t) => t.date?.toDate() > now && t.status !== 'completed')
           .sort((a, b) => (a.date?.toMillis() ?? 0) - (b.date?.toMillis() ?? 0))
           .slice(0, 5)
         setUpcomingTournaments(upcoming)
+
+        const past = tournaments
+          .filter((t) => t.status === 'completed')
+          .sort((a, b) => (b.date?.toMillis() ?? 0) - (a.date?.toMillis() ?? 0))
+          .slice(0, 5)
+        setPastTournaments(past)
+
+        // Fetch champion names
+        const championIds = past.filter((t) => t.champion).map((t) => t.champion!)
+        if (championIds.length > 0) {
+          const championProfiles = await fetchPublicProfiles(championIds)
+          const names: Record<string, string> = {}
+          championIds.forEach((id) => {
+            names[id] = championProfiles[id]?.displayName ?? 'Unknown'
+          })
+          setChampionNames(names)
+        }
       } catch (err) {
         console.error('Error loading landing page:', err)
         setError('Failed to load data. Please refresh the page.')
@@ -102,7 +121,7 @@ export function LandingPage() {
         <div className="space-y-3">
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              Coming tournaments
+              Upcoming tournaments
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
               Sign in to register and compete
@@ -119,6 +138,40 @@ export function LandingPage() {
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     {t.date?.toDate().toLocaleDateString() ?? ''} · {t.type} · {t.maxPlayers} max
                   </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Past tournaments */}
+      {pastTournaments.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+              Past tournaments
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Champions and past results
+            </p>
+          </div>
+          <ul className="space-y-2">
+            {pastTournaments.map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+              >
+                <div>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">{t.name}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {t.date?.toDate().toLocaleDateString() ?? ''} · {t.type}
+                  </p>
+                  {t.champion && (
+                    <p className="mt-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                      🏆 Champion: {championNames[t.champion] || 'Unknown'}
+                    </p>
+                  )}
                 </div>
               </li>
             ))}
