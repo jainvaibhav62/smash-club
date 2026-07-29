@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -10,15 +11,34 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
       : 'text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800'
   }`
 
+const dropdownLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+    isActive
+      ? 'bg-emerald-600 text-white'
+      : 'text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800'
+  }`
+
 export function NavBar() {
   const navigate = useNavigate()
   const { profile, isAdmin, signOutUser } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false)
+  const adminMenuRef = useRef<HTMLDivElement>(null)
 
   async function handleSignOut() {
     await signOutUser()
     navigate('/')
   }
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(event.target as Node)) {
+        setAdminMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur print:hidden dark:border-slate-800 dark:bg-slate-950/80">
@@ -31,7 +51,7 @@ export function NavBar() {
             🏸 Smash Club
           </button>
           {profile && (
-            <nav className="flex gap-1">
+            <nav className="flex items-center gap-1">
               <NavLink to="/" end className={linkClass}>
                 Home
               </NavLink>
@@ -42,20 +62,50 @@ export function NavBar() {
                 Leaderboard
               </NavLink>
               {isAdmin && (
-                <>
-                  <NavLink to="/admin/users" className={linkClass}>
-                    Users
-                  </NavLink>
-                  <NavLink to="/admin/locations" className={linkClass}>
-                    Locations
-                  </NavLink>
-                  <NavLink to="/admin/tournaments" className={linkClass}>
-                    Manage
-                  </NavLink>
-                  <NavLink to="/admin/announcements" className={linkClass}>
-                    Announcements
-                  </NavLink>
-                </>
+                <div className="relative" ref={adminMenuRef}>
+                  <button
+                    onClick={() => setAdminMenuOpen((open) => !open)}
+                    className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      adminMenuOpen
+                        ? 'bg-emerald-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    Admin ▾
+                  </button>
+                  {adminMenuOpen && (
+                    <div className="absolute left-0 top-full z-20 mt-1 w-44 rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-800 dark:bg-slate-900">
+                      <NavLink
+                        to="/admin/users"
+                        className={dropdownLinkClass}
+                        onClick={() => setAdminMenuOpen(false)}
+                      >
+                        Users
+                      </NavLink>
+                      <NavLink
+                        to="/admin/locations"
+                        className={dropdownLinkClass}
+                        onClick={() => setAdminMenuOpen(false)}
+                      >
+                        Locations
+                      </NavLink>
+                      <NavLink
+                        to="/admin/tournaments"
+                        className={dropdownLinkClass}
+                        onClick={() => setAdminMenuOpen(false)}
+                      >
+                        Manage
+                      </NavLink>
+                      <NavLink
+                        to="/admin/announcements"
+                        className={dropdownLinkClass}
+                        onClick={() => setAdminMenuOpen(false)}
+                      >
+                        Announcements
+                      </NavLink>
+                    </div>
+                  )}
+                </div>
               )}
             </nav>
           )}

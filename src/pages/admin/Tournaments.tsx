@@ -24,6 +24,7 @@ export function AdminTournamentsPage() {
   const [registrationClosesAt, setRegistrationClosesAt] = useState('')
   const [formError, setFormError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -94,6 +95,13 @@ export function AdminTournamentsPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function handleCopyLink(tournament: Tournament) {
+    const url = `${window.location.origin}${window.location.pathname}#/tournaments/${tournament.id}`
+    await navigator.clipboard.writeText(url)
+    setCopiedId(tournament.id)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
   function toggleCourt(courtId: string) {
@@ -304,6 +312,12 @@ export function AdminTournamentsPage() {
                 </p>
               </div>
               <div className="flex gap-2">
+                <button
+                  onClick={() => handleCopyLink(tournament)}
+                  className="rounded-md bg-blue-100 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300"
+                >
+                  {copiedId === tournament.id ? '✓ Copied!' : '🔗 Copy link'}
+                </button>
                 <Link
                   to={`/admin/tournaments/${tournament.id}/registrations`}
                   className="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"

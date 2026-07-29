@@ -10,6 +10,7 @@ import { SignInPage } from './pages/SignIn'
 import { ForgotPasswordPage } from './pages/ForgotPassword'
 import { VerifyEmailPage } from './pages/VerifyEmail'
 import { TournamentsPage } from './pages/Tournaments'
+import { TournamentDetailPage } from './pages/TournamentDetail'
 import { LeaderboardPage } from './pages/Leaderboard'
 import { AdminLocationsPage } from './pages/admin/Locations'
 import { AdminTournamentsPage } from './pages/admin/Tournaments'
@@ -44,6 +45,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <TournamentsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tournaments/:tournamentId"
+                element={
+                  <ProtectedRoute>
+                    <TournamentDetailPage />
                   </ProtectedRoute>
                 }
               />
