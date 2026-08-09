@@ -82,12 +82,28 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Matches: public read for live tournament screens; only admins write,
-    // and never once a match is locked.
+    // Matches: public read for live tournament screens. Admins can always
+    // edit (unless locked). Any of the 4 players in a match may also submit
+    // its score exactly once — the `resource.data.status != 'completed'`
+    // guard is what makes it one-time: once a participant's submission
+    // flips status to 'completed', this clause no longer matches for
+    // further participant writes, leaving only the admin clause able to
+    // correct it.
     match /matches/{matchId} {
       allow read: if true;
-      allow write: if isAdmin() && resource.data.status != 'locked';
       allow create: if isAdmin();
+      allow update: if
+        (isAdmin() && resource.data.status != 'locked') ||
+        (isSignedIn() &&
+         resource.data.status != 'completed' && resource.data.status != 'locked' &&
+         (request.auth.uid in resource.data.teamA || request.auth.uid in resource.data.teamB) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'scoreA', 'scoreB', 'winner', 'completedAt']) &&
+         request.resource.data.status == 'completed' &&
+         request.resource.data.scoreA is int && request.resource.data.scoreA >= 0 &&
+         request.resource.data.scoreB is int && request.resource.data.scoreB >= 0 &&
+         request.resource.data.scoreA != request.resource.data.scoreB &&
+         request.resource.data.winner in ['A', 'B']);
+      allow delete: if isAdmin() && resource.data.status != 'locked';
     }
 
     // Aggregates are maintained exclusively by Cloud Functions (Admin SDK,

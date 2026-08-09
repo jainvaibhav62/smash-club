@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { FixturesList } from '../components/FixturesList'
 import { TournamentStandings } from '../components/TournamentStandings'
 import { fetchPublicProfiles } from '../services/auth'
-import { listMatchesForTournament } from '../services/fixtures'
+import { listMatchesForTournament, submitOwnMatchScore } from '../services/fixtures'
 import { computeTournamentLeaderboard } from '../services/leaderboard'
 import { getCourtsByIds } from '../services/locations'
 import {
@@ -77,13 +77,7 @@ export function TournamentsPage() {
     setBusyId(null)
   }
 
-  async function toggleFixtures(tournament: Tournament) {
-    if (expandedFixtures === tournament.id) {
-      setExpandedFixtures(null)
-      setFixtureData(null)
-      return
-    }
-    setExpandedFixtures(tournament.id)
+  async function loadFixtureData(tournament: Tournament) {
     setFixturesLoading(true)
     const [matches, courts, tournamentRegs] = await Promise.all([
       listMatchesForTournament(tournament.id),
@@ -97,6 +91,25 @@ export function TournamentsPage() {
     const profiles = await fetchPublicProfiles(involvedIds)
     setFixtureData({ matches, courts, profiles, confirmedPlayerIds })
     setFixturesLoading(false)
+  }
+
+  async function toggleFixtures(tournament: Tournament) {
+    if (expandedFixtures === tournament.id) {
+      setExpandedFixtures(null)
+      setFixtureData(null)
+      return
+    }
+    setExpandedFixtures(tournament.id)
+    await loadFixtureData(tournament)
+  }
+
+  async function handleSubmitScore(matchId: string, scoreA: number, scoreB: number) {
+    if (!profile || !fixtureData) return
+    const match = fixtureData.matches.find((m) => m.id === matchId)
+    if (!match) return
+    await submitOwnMatchScore(match, scoreA, scoreB, profile.uid)
+    const tournament = tournaments.find((t) => t.id === match.tournamentId)
+    if (tournament) await loadFixtureData(tournament)
   }
 
   if (loading) return <p className="text-slate-500 dark:text-slate-400">Loading tournaments…</p>
@@ -200,29 +213,31 @@ export function TournamentsPage() {
                   ) : (
                     fixtureData && (
                       <div className="space-y-4">
-                        {fixtureData.matches.length > 0 && tournament.status === 'completed' && (
-                          <div>
-                            <h3 className="mb-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
-                              Final standings
-                            </h3>
-                            <TournamentStandings
-                              rows={computeTournamentLeaderboard(
-                                fixtureData.confirmedPlayerIds,
-                                fixtureData.matches,
-                              )}
-                              profiles={fixtureData.profiles}
-                            />
-                          </div>
-                        )}
-                        {fixtureData.matches.length > 0 && tournament.status !== 'completed' && (
-                          <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                            🍲 Standings are still marinating — check back once the tournament wraps up!
-                          </div>
-                        )}
+                        {fixtureData.matches.length > 0 &&
+                          (fixtureData.matches.some((m) => m.status === 'completed') ? (
+                            <div>
+                              <h3 className="mb-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                {tournament.status === 'completed' ? 'Final standings' : 'Live standings'}
+                              </h3>
+                              <TournamentStandings
+                                rows={computeTournamentLeaderboard(
+                                  fixtureData.confirmedPlayerIds,
+                                  fixtureData.matches,
+                                )}
+                                profiles={fixtureData.profiles}
+                              />
+                            </div>
+                          ) : (
+                            <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                              🍲 Standings are still marinating — check back once a match has been scored!
+                            </div>
+                          ))}
                         <FixturesList
                           matches={fixtureData.matches}
                           courts={fixtureData.courts}
                           profiles={fixtureData.profiles}
+                          currentUserId={tournament.status === 'completed' ? undefined : profile?.uid}
+                          onSubmitScore={tournament.status === 'completed' ? undefined : handleSubmitScore}
                         />
                       </div>
                     )

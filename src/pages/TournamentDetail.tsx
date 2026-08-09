@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { FixturesList } from '../components/FixturesList'
 import { TournamentStandings } from '../components/TournamentStandings'
 import { fetchPublicProfiles } from '../services/auth'
-import { listMatchesForTournament } from '../services/fixtures'
+import { listMatchesForTournament, submitOwnMatchScore } from '../services/fixtures'
 import { computeTournamentLeaderboard } from '../services/leaderboard'
 import { getCourtsByIds } from '../services/locations'
 import {
@@ -92,6 +92,14 @@ export function TournamentDetailPage() {
     setBusy(false)
   }
 
+  async function handleSubmitScore(matchId: string, scoreA: number, scoreB: number) {
+    if (!profile) return
+    const match = matches.find((m) => m.id === matchId)
+    if (!match) return
+    await submitOwnMatchScore(match, scoreA, scoreB, profile.uid)
+    await load()
+  }
+
   if (loading) return <p className="text-slate-500 dark:text-slate-400">Loading tournament…</p>
   if (notFound) return <p className="text-slate-500 dark:text-slate-400">Tournament not found.</p>
   if (!tournament) return null
@@ -159,10 +167,10 @@ export function TournamentDetailPage() {
 
       {matches.length > 0 && (
         <div className="space-y-4">
-          {tournament.status === 'completed' ? (
+          {matches.some((m) => m.status === 'completed') ? (
             <div>
               <h3 className="mb-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
-                Final standings
+                {tournament.status === 'completed' ? 'Final standings' : 'Live standings'}
               </h3>
               <TournamentStandings
                 rows={computeTournamentLeaderboard(confirmedPlayerIds, matches)}
@@ -171,10 +179,16 @@ export function TournamentDetailPage() {
             </div>
           ) : (
             <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-              🍲 Standings are still marinating — check back once the tournament wraps up!
+              🍲 Standings are still marinating — check back once a match has been scored!
             </div>
           )}
-          <FixturesList matches={matches} courts={courts} profiles={profiles} />
+          <FixturesList
+            matches={matches}
+            courts={courts}
+            profiles={profiles}
+            currentUserId={tournament.status === 'completed' ? undefined : profile?.uid}
+            onSubmitScore={tournament.status === 'completed' ? undefined : handleSubmitScore}
+          />
         </div>
       )}
     </div>

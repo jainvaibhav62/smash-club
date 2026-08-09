@@ -25,6 +25,7 @@ export function AdminRegistrationsPage() {
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [fixtureError, setFixtureError] = useState('')
+  const [maxMatchesPerPlayer, setMaxMatchesPerPlayer] = useState('')
   const [publishingLeaderboard, setPublishingLeaderboard] = useState(false)
   const [availablePlayers, setAvailablePlayers] = useState<UserProfile[]>([])
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set())
@@ -89,7 +90,8 @@ export function AdminRegistrationsPage() {
     setGenerating(true)
     setFixtureError('')
     try {
-      await generateFixtures(tournamentId)
+      const cap = maxMatchesPerPlayer.trim() ? Number(maxMatchesPerPlayer) : undefined
+      await generateFixtures(tournamentId, cap)
       await load()
     } catch (err) {
       setFixtureError(err instanceof Error ? err.message : 'Failed to generate fixtures.')
@@ -278,7 +280,20 @@ export function AdminRegistrationsPage() {
       <div className="space-y-3 border-t border-slate-200 pt-6 dark:border-slate-800">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Fixtures</h2>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
+              Max matches per player
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={maxMatchesPerPlayer}
+                onChange={(e) => setMaxMatchesPerPlayer(e.target.value)}
+                disabled={generating || matches.some((m) => m.status === 'completed')}
+                placeholder="No cap"
+                className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
+              />
+            </label>
             <button
               onClick={handleDisplayFixtures}
               disabled={generating || matches.some((m) => m.status === 'completed')}

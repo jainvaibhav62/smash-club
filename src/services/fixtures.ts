@@ -18,6 +18,16 @@ function pairKey(a: string, b: string) {
   return [a, b].sort().join('|')
 }
 
+/** Fisher–Yates, returns a new array — doesn't mutate the input. */
+function shuffle<T>(arr: T[]): T[] {
+  const result = [...arr]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[result[i], result[j]] = [result[j], result[i]]
+  }
+  return result
+}
+
 /** Stage A: build a fair set of matches — balanced match counts, minimized repeat
  * opponents/partners — via randomized weighted-candidate sampling (not full
  * enumeration; see the "why sampling" note in docs/fixture-algorithm.md). */
@@ -91,39 +101,102 @@ export interface ScheduledMatch extends Candidate {
   matchNumber: number
 }
 
+function candidatePlayers(m: Candidate): string[] {
+  return [...m.teamA, ...m.teamB]
+}
+
+/** Trims the (already-shuffled) candidate pool so no player appears in more than
+ * `maxPerPlayer` matches. A single random pass over the shuffled pool, keeping a
+ * candidate only if none of its players are capped out yet — since the pool is
+ * random to begin with, which matches survive (and who each player's opponents
+ * end up being) is random too, not just "the first N in generation order". */
+function capMatchesPerPlayer(pool: Candidate[], maxPerPlayer: number): Candidate[] {
+  const counts = new Map<string, number>()
+  const kept: Candidate[] = []
+  for (const m of pool) {
+    const players = candidatePlayers(m)
+    if (players.some((p) => (counts.get(p) ?? 0) >= maxPerPlayer)) continue
+    kept.push(m)
+    players.forEach((p) => counts.set(p, (counts.get(p) ?? 0) + 1))
+  }
+  return kept
+}
+
 /** Stage B (round-based): groups matches into rounds where no player is double-booked,
  * rotating the starting court each round so players cycle across courts over time.
+ * Also enforces fairness: each round prefers whoever has played the fewest matches
+ * so far, and anyone who's played 3 rounds in a row without a break sits out the
+ * next round (unless too few other players remain to fill the courts, in which
+ * case rest is skipped rather than stalling the schedule).
  * A true live/continuous court queue (reassigning the instant a court frees up) needs
  * match-completion events from score entry, which doesn't exist yet — see
  * docs/fixture-algorithm.md for the upgrade path. */
 export function scheduleCourts(matches: Candidate[], courtIds: string[]): ScheduledMatch[] {
   const scheduled: ScheduledMatch[] = []
   const remaining = [...matches]
+  const matchesPlayed = new Map<string, number>()
+  const streak = new Map<string, number>() // consecutive rounds played without a rest
   let round = 0
   let matchNumber = 1
 
   while (remaining.length > 0) {
     const busy = new Set<string>()
     const roundMatches: Candidate[] = []
+    const mustRest = new Set(
+      [...streak.entries()].filter(([, n]) => n >= 3).map(([playerId]) => playerId),
+    )
 
-    for (let i = 0; i < remaining.length && roundMatches.length < courtIds.length; ) {
-      const players = [...remaining[i].teamA, ...remaining[i].teamB]
-      if (players.every((p) => !busy.has(p))) {
-        roundMatches.push(remaining[i])
-        players.forEach((p) => busy.add(p))
-        remaining.splice(i, 1)
-      } else {
-        i++
-      }
+    // Two tiers: matches with no rest-due player first (fairness — least total
+    // matches played among their players), then matches that do involve a
+    // rest-due player, only used once tier 1 is exhausted and ranked by that
+    // player's *current* streak ascending — so if the rest slots available
+    // this round can't cover everyone who's due, whoever's overflowed the
+    // least gets pulled back in, and whoever's already been forced to keep
+    // playing the most keeps getting priority for the next opening.
+    const rank = (m: Candidate) => {
+      const players = candidatePlayers(m)
+      const overflowing = players.some((p) => mustRest.has(p))
+      const key = overflowing
+        ? Math.max(...players.map((p) => streak.get(p) ?? 0))
+        : Math.min(...players.map((p) => matchesPlayed.get(p) ?? 0))
+      return { tier: overflowing ? 1 : 0, key }
+    }
+    const ordered = [...remaining].sort((a, b) => {
+      const ra = rank(a)
+      const rb = rank(b)
+      return ra.tier - rb.tier || ra.key - rb.key
+    })
+
+    for (const m of ordered) {
+      if (roundMatches.length >= courtIds.length) break
+      const players = candidatePlayers(m)
+      if (players.some((p) => busy.has(p))) continue
+      roundMatches.push(m)
+      players.forEach((p) => busy.add(p))
     }
 
     if (roundMatches.length === 0) break // safety valve, shouldn't happen
+
+    roundMatches.forEach((m) => {
+      remaining.splice(remaining.indexOf(m), 1)
+    })
 
     roundMatches.forEach((m, idx) => {
       const courtId = courtIds[(round + idx) % courtIds.length]
       scheduled.push({ ...m, courtId, round, matchNumber })
       matchNumber++
     })
+
+    const playedThisRound = new Set(roundMatches.flatMap(candidatePlayers))
+    playedThisRound.forEach((p) => {
+      matchesPlayed.set(p, (matchesPlayed.get(p) ?? 0) + 1)
+      streak.set(p, (streak.get(p) ?? 0) + 1)
+    })
+    // Anyone previously tracked who didn't play this round got their rest.
+    streak.forEach((_, p) => {
+      if (!playedThisRound.has(p)) streak.set(p, 0)
+    })
+
     round++
   }
 
@@ -137,11 +210,15 @@ export async function listMatchesForTournament(tournamentId: string): Promise<Ma
 
 export async function generateFixtures(
   tournamentId: string,
+  maxMatchesPerPlayer?: number,
 ): Promise<{ matchCount: number; roundCount: number }> {
   const tournament = await getTournament(tournamentId)
   if (!tournament) throw new Error('Tournament not found.')
   if (tournament.courtIds.length === 0) {
     throw new Error('This tournament has no courts assigned — pick courts when editing it.')
+  }
+  if (maxMatchesPerPlayer !== undefined && (!Number.isInteger(maxMatchesPerPlayer) || maxMatchesPerPlayer < 1)) {
+    throw new Error('Max matches per player must be a whole number of at least 1.')
   }
 
   const registrations = await listRegistrationsForTournament(tournamentId)
@@ -156,7 +233,8 @@ export async function generateFixtures(
     throw new Error('Some matches already have recorded results, so fixtures can’t be regenerated.')
   }
 
-  const pool = buildMatchPool(confirmedPlayerIds, tournament.type)
+  let pool = shuffle(buildMatchPool(confirmedPlayerIds, tournament.type))
+  if (maxMatchesPerPlayer) pool = capMatchesPerPlayer(pool, maxMatchesPerPlayer)
   const scheduled = scheduleCourts(pool, tournament.courtIds)
 
   const batch = writeBatch(db)
@@ -205,6 +283,24 @@ export async function recordMatchScore(matchId: string, scoreA: number, scoreB: 
     winner,
     completedAt: serverTimestamp(),
   })
+}
+
+/** Lets one of the 4 players in a match submit its score, once. Firestore
+ * rules are the real enforcement (only allow this while the match is still
+ * unscored); these are just friendlier pre-flight errors for the UI. */
+export async function submitOwnMatchScore(
+  match: Match,
+  scoreA: number,
+  scoreB: number,
+  userId: string,
+) {
+  if (!match.teamA.includes(userId) && !match.teamB.includes(userId)) {
+    throw new Error("You're not one of the players in this match.")
+  }
+  if (match.status === 'completed' || match.status === 'locked') {
+    throw new Error('This score was already submitted — ask an admin to correct it.')
+  }
+  await recordMatchScore(match.id, scoreA, scoreB)
 }
 
 /** Deletes all fixtures (matches) for a tournament */

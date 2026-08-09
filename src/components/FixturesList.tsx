@@ -10,6 +10,7 @@ function MatchRow({
   courtName,
   profiles,
   editable,
+  currentUserId,
   pointsTarget,
   onSubmitScore,
 }: {
@@ -17,6 +18,7 @@ function MatchRow({
   courtName: string
   profiles: Record<string, PublicProfile>
   editable: boolean
+  currentUserId?: string
   pointsTarget?: number
   onSubmitScore?: (matchId: string, scoreA: number, scoreB: number) => Promise<void>
 }) {
@@ -26,7 +28,11 @@ function MatchRow({
   const [error, setError] = useState('')
 
   const isCompleted = match.status === 'completed'
-  const canEdit = editable && match.status !== 'locked' && onSubmitScore
+  const isParticipant =
+    !!currentUserId && (match.teamA.includes(currentUserId) || match.teamB.includes(currentUserId))
+  const canAdminEdit = editable && match.status !== 'locked' && onSubmitScore
+  const canPlayerSubmit = !editable && isParticipant && match.status === 'scheduled' && onSubmitScore
+  const canEdit = canAdminEdit || canPlayerSubmit
 
   async function handleSave() {
     const a = Number(scoreA)
@@ -92,7 +98,7 @@ function MatchRow({
             disabled={saving}
             className="rounded-md bg-emerald-600 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {saving ? 'Saving…' : isCompleted ? 'Correct score' : 'Save score'}
+            {saving ? 'Saving…' : canAdminEdit ? (isCompleted ? 'Correct score' : 'Save score') : 'Submit score'}
           </button>
           {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
         </div>
@@ -106,6 +112,7 @@ export function FixturesList({
   courts,
   profiles,
   editable = false,
+  currentUserId,
   pointsTarget,
   onSubmitScore,
 }: {
@@ -113,6 +120,7 @@ export function FixturesList({
   courts: Court[]
   profiles: Record<string, PublicProfile>
   editable?: boolean
+  currentUserId?: string
   pointsTarget?: number
   onSubmitScore?: (matchId: string, scoreA: number, scoreB: number) => Promise<void>
 }) {
@@ -140,6 +148,7 @@ export function FixturesList({
                   courtName={courtNameById[match.courtId ?? ''] ?? 'Court TBD'}
                   profiles={profiles}
                   editable={editable}
+                  currentUserId={currentUserId}
                   pointsTarget={pointsTarget}
                   onSubmitScore={onSubmitScore}
                 />
