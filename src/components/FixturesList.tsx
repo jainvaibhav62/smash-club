@@ -30,11 +30,16 @@ function MatchRow({
   const isCompleted = match.status === 'completed'
   const isParticipant =
     !!currentUserId && (match.teamA.includes(currentUserId) || match.teamB.includes(currentUserId))
-  const canAdminEdit = editable && match.status !== 'locked' && onSubmitScore
-  const canPlayerSubmit = !editable && isParticipant && match.status === 'scheduled' && onSubmitScore
-  const canEdit = canAdminEdit || canPlayerSubmit
+  const canAdminEdit = !!editable && match.status !== 'locked' && !!onSubmitScore
+  // Player mode shows the score box on every not-yet-scored match, so players can see where
+  // scoring happens even for matches they're not in — but only a participant can actually use it.
+  const showPlayerBox = !editable && match.status === 'scheduled' && !!onSubmitScore
+  const canPlayerSubmit = showPlayerBox && isParticipant
+  const showBox = canAdminEdit || showPlayerBox
+  const canSubmit = canAdminEdit || canPlayerSubmit
 
   async function handleSave() {
+    if (!canSubmit) return
     const a = Number(scoreA)
     const b = Number(scoreB)
     if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a === b) {
@@ -71,7 +76,7 @@ function MatchRow({
         </span>
       </div>
 
-      {canEdit && (
+      {showBox && (
         <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
           <input
             type="number"
@@ -79,7 +84,8 @@ function MatchRow({
             value={scoreA}
             onChange={(e) => setScoreA(e.target.value)}
             placeholder="Score A"
-            className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
+            disabled={!canSubmit}
+            className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800"
           />
           <span className="text-slate-400">–</span>
           <input
@@ -88,18 +94,25 @@ function MatchRow({
             value={scoreB}
             onChange={(e) => setScoreB(e.target.value)}
             placeholder="Score B"
-            className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
+            disabled={!canSubmit}
+            className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800"
           />
           {pointsTarget && (
             <span className="text-xs text-slate-400 dark:text-slate-500">Race to {pointsTarget}</span>
           )}
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !canSubmit}
+            title={canSubmit ? '' : 'Only players in this match can submit its score'}
             className="rounded-md bg-emerald-600 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {saving ? 'Saving…' : canAdminEdit ? (isCompleted ? 'Correct score' : 'Save score') : 'Submit score'}
           </button>
+          {!canSubmit && (
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              Only players in this match can submit its score.
+            </span>
+          )}
           {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
         </div>
       )}
