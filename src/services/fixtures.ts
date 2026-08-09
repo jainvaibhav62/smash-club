@@ -124,10 +124,13 @@ function capMatchesPerPlayer(pool: Candidate[], maxPerPlayer: number): Candidate
 
 /** Stage B (round-based): groups matches into rounds where no player is double-booked,
  * rotating the starting court each round so players cycle across courts over time.
- * Also enforces fairness: each round prefers whoever has played the fewest matches
- * so far, and anyone who's played 3 rounds in a row without a break sits out the
- * next round (unless too few other players remain to fill the courts, in which
- * case rest is skipped rather than stalling the schedule).
+ * Also enforces fairness and a hard rest rule: each round prefers whoever has
+ * played the fewest matches so far, and anyone who's played 3 rounds in a row
+ * without a break is never scheduled again until they've sat out at least one
+ * round — even if that leaves a court idle for a round, or (in the tightest
+ * cases) means a round has no matches at all ("bye" round, purely to let
+ * everyone's streak reset before continuing). The 3-in-a-row cap is a hard
+ * ceiling, not a preference.
  * A true live/continuous court queue (reassigning the instant a court frees up) needs
  * match-completion events from score entry, which doesn't exist yet — see
  * docs/fixture-algorithm.md for the upgrade path. */
@@ -146,25 +149,12 @@ export function scheduleCourts(matches: Candidate[], courtIds: string[]): Schedu
       [...streak.entries()].filter(([, n]) => n >= 3).map(([playerId]) => playerId),
     )
 
-    // Two tiers: matches with no rest-due player first (fairness — least total
-    // matches played among their players), then matches that do involve a
-    // rest-due player, only used once tier 1 is exhausted and ranked by that
-    // player's *current* streak ascending — so if the rest slots available
-    // this round can't cover everyone who's due, whoever's overflowed the
-    // least gets pulled back in, and whoever's already been forced to keep
-    // playing the most keeps getting priority for the next opening.
-    const rank = (m: Candidate) => {
-      const players = candidatePlayers(m)
-      const overflowing = players.some((p) => mustRest.has(p))
-      const key = overflowing
-        ? Math.max(...players.map((p) => streak.get(p) ?? 0))
-        : Math.min(...players.map((p) => matchesPlayed.get(p) ?? 0))
-      return { tier: overflowing ? 1 : 0, key }
-    }
-    const ordered = [...remaining].sort((a, b) => {
-      const ra = rank(a)
-      const rb = rank(b)
-      return ra.tier - rb.tier || ra.key - rb.key
+    // Hard filter: never schedule a rest-due player, no fallback. Among what's
+    // left, prefer whoever's played the fewest matches so far (fairness).
+    const eligible = remaining.filter((m) => !candidatePlayers(m).some((p) => mustRest.has(p)))
+    const ordered = eligible.sort((a, b) => {
+      const load = (m: Candidate) => Math.min(...candidatePlayers(m).map((p) => matchesPlayed.get(p) ?? 0))
+      return load(a) - load(b)
     })
 
     for (const m of ordered) {
@@ -175,7 +165,14 @@ export function scheduleCourts(matches: Candidate[], courtIds: string[]): Schedu
       players.forEach((p) => busy.add(p))
     }
 
-    if (roundMatches.length === 0) break // safety valve, shouldn't happen
+    if (roundMatches.length === 0) {
+      if (mustRest.size === 0) break // truly nothing schedulable — safety valve, shouldn't happen
+      // Every remaining match needs someone who's rest-due: give everyone
+      // currently on a streak a bye round rather than break the 3-in-a-row cap.
+      streak.forEach((_, p) => streak.set(p, 0))
+      round++
+      continue
+    }
 
     roundMatches.forEach((m) => {
       remaining.splice(remaining.indexOf(m), 1)
