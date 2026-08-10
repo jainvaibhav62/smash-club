@@ -25,7 +25,7 @@ export function AdminRegistrationsPage() {
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [fixtureError, setFixtureError] = useState('')
-  const [maxMatchesPerPlayer, setMaxMatchesPerPlayer] = useState('')
+  const [exactMatchesPerPlayer, setExactMatchesPerPlayer] = useState('')
   const [publishingLeaderboard, setPublishingLeaderboard] = useState(false)
   const [availablePlayers, setAvailablePlayers] = useState<UserProfile[]>([])
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set())
@@ -90,8 +90,8 @@ export function AdminRegistrationsPage() {
     setGenerating(true)
     setFixtureError('')
     try {
-      const cap = maxMatchesPerPlayer.trim() ? Number(maxMatchesPerPlayer) : undefined
-      await generateFixtures(tournamentId, cap)
+      const exact = exactMatchesPerPlayer.trim() ? Number(exactMatchesPerPlayer) : undefined
+      await generateFixtures(tournamentId, exact)
       await load()
     } catch (err) {
       setFixtureError(err instanceof Error ? err.message : 'Failed to generate fixtures.')
@@ -282,15 +282,16 @@ export function AdminRegistrationsPage() {
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Fixtures</h2>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
-              Max matches per player
+              Matches per player (exact)
               <input
                 type="number"
                 min={1}
                 step={1}
-                value={maxMatchesPerPlayer}
-                onChange={(e) => setMaxMatchesPerPlayer(e.target.value)}
+                value={exactMatchesPerPlayer}
+                onChange={(e) => setExactMatchesPerPlayer(e.target.value)}
                 disabled={generating || matches.some((m) => m.status === 'completed')}
-                placeholder="No cap"
+                placeholder="All combinations"
+                title="Every confirmed player will play exactly this many matches, chosen at random. Leave blank for the full round-robin."
                 className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
               />
             </label>

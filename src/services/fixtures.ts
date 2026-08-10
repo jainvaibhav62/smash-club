@@ -105,21 +105,108 @@ function candidatePlayers(m: Candidate): string[] {
   return [...m.teamA, ...m.teamB]
 }
 
-/** Trims the (already-shuffled) candidate pool so no player appears in more than
- * `maxPerPlayer` matches. A single random pass over the shuffled pool, keeping a
- * candidate only if none of its players are capped out yet — since the pool is
- * random to begin with, which matches survive (and who each player's opponents
- * end up being) is random too, not just "the first N in generation order". */
-function capMatchesPerPlayer(pool: Candidate[], maxPerPlayer: number): Candidate[] {
-  const counts = new Map<string, number>()
-  const kept: Candidate[] = []
-  for (const m of pool) {
-    const players = candidatePlayers(m)
-    if (players.some((p) => (counts.get(p) ?? 0) >= maxPerPlayer)) continue
-    kept.push(m)
-    players.forEach((p) => counts.set(p, (counts.get(p) ?? 0) + 1))
+/** Singles: builds a match pool where every player plays exactly `n` matches,
+ * via a circulant construction (players arranged in a circle, connected to
+ * neighbors at offsets 1..⌊n/2⌋, plus the diametrically-opposite player when
+ * n is odd) — a standard, always-correct way to build an exact n-regular
+ * graph. Feasible iff 0 <= n <= playerIds.length - 1 and playerIds.length * n
+ * is even (each match uses 2 player-slots, so total slots must divide evenly);
+ * returns null otherwise. Deterministic and instant — no search needed. */
+function exactSinglesMatchPool(playerIds: string[], n: number): Candidate[] | null {
+  const count = playerIds.length
+  if (n < 0 || n > count - 1 || (count * n) % 2 !== 0) return null
+
+  const order = shuffle(playerIds)
+  const seen = new Set<string>()
+  const result: Candidate[] = []
+  const addEdge = (i: number, j: number) => {
+    const a = order[i]
+    const b = order[j]
+    const key = pairKey(a, b)
+    if (seen.has(key)) return
+    seen.add(key)
+    result.push({ teamA: [a], teamB: [b] })
   }
-  return kept
+
+  let remaining = n
+  let offset = 1
+  while (remaining >= 2) {
+    for (let i = 0; i < count; i++) addEdge(i, (i + offset) % count)
+    remaining -= 2
+    offset++
+  }
+  if (remaining === 1) {
+    // count is guaranteed even here by the feasibility check above.
+    for (let i = 0; i < count / 2; i++) addEdge(i, i + count / 2)
+  }
+  return result
+}
+
+/** Doubles: no simple closed-form construction exists for "every player plays
+ * exactly n matches" once the no-repeat-partner rule is layered on top of
+ * plain n-regularity, so this searches — regenerate the match pool from a
+ * freshly shuffled player order, greedily keep whichever remaining candidate's
+ * players are currently furthest below the target (re-ranked after each pick),
+ * and check whether every player landed on exactly `n`. Retries with a new
+ * shuffle on failure, since which matches even exist depends on player order. */
+function tryExactMatchPool(
+  playerIds: string[],
+  type: TournamentType,
+  n: number,
+  attempts: number,
+): Candidate[] | null {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const pool = shuffle(buildMatchPool(shuffle(playerIds), type))
+    const counts = new Map<string, number>()
+    const kept: Candidate[] = []
+    const remaining = [...pool]
+    let progress = true
+    while (progress) {
+      progress = false
+      remaining.sort((a, b) => {
+        const load = (m: Candidate) => Math.max(...candidatePlayers(m).map((p) => counts.get(p) ?? 0))
+        return load(a) - load(b)
+      })
+      for (let i = 0; i < remaining.length; i++) {
+        const players = candidatePlayers(remaining[i])
+        if (players.every((p) => (counts.get(p) ?? 0) < n)) {
+          kept.push(remaining[i])
+          players.forEach((p) => counts.set(p, (counts.get(p) ?? 0) + 1))
+          remaining.splice(i, 1)
+          progress = true
+          break
+        }
+      }
+    }
+    if (playerIds.every((p) => (counts.get(p) ?? 0) === n)) return kept
+  }
+  return null
+}
+
+/** Builds a match pool where every player plays exactly `n` matches, or
+ * returns null if that's not achievable for this player count/type. */
+function exactMatchPool(playerIds: string[], type: TournamentType, n: number): Candidate[] | null {
+  if (type === 'singles') return exactSinglesMatchPool(playerIds, n)
+  return tryExactMatchPool(playerIds, type, n, 200)
+}
+
+/** When the requested exact count isn't achievable, finds nearby counts that
+ * are — scanning outward (n-1, n+1, n-2, n+2, …) so suggestions are reported
+ * closest-first. Singles checks are instant (closed-form); doubles checks
+ * are a bounded search, so this stays capped to keep it responsive. */
+function suggestAchievableExactCounts(playerIds: string[], type: TournamentType, requested: number): number[] {
+  const max = playerIds.length - 1
+  const suggestions: number[] = []
+  for (let delta = 1; delta <= max && suggestions.length < 4; delta++) {
+    for (const candidate of [requested - delta, requested + delta]) {
+      if (candidate < 1 || candidate > max) continue
+      if (type === 'singles' ? exactSinglesMatchPool(playerIds, candidate) : tryExactMatchPool(playerIds, type, candidate, 60)) {
+        suggestions.push(candidate)
+        if (suggestions.length >= 4) break
+      }
+    }
+  }
+  return suggestions.sort((a, b) => a - b)
 }
 
 /** Stage B (round-based): groups matches into rounds where no player is double-booked,
@@ -207,15 +294,15 @@ export async function listMatchesForTournament(tournamentId: string): Promise<Ma
 
 export async function generateFixtures(
   tournamentId: string,
-  maxMatchesPerPlayer?: number,
+  exactMatchesPerPlayer?: number,
 ): Promise<{ matchCount: number; roundCount: number }> {
   const tournament = await getTournament(tournamentId)
   if (!tournament) throw new Error('Tournament not found.')
   if (tournament.courtIds.length === 0) {
     throw new Error('This tournament has no courts assigned — pick courts when editing it.')
   }
-  if (maxMatchesPerPlayer !== undefined && (!Number.isInteger(maxMatchesPerPlayer) || maxMatchesPerPlayer < 1)) {
-    throw new Error('Max matches per player must be a whole number of at least 1.')
+  if (exactMatchesPerPlayer !== undefined && (!Number.isInteger(exactMatchesPerPlayer) || exactMatchesPerPlayer < 1)) {
+    throw new Error('Matches per player must be a whole number of at least 1.')
   }
 
   const registrations = await listRegistrationsForTournament(tournamentId)
@@ -230,8 +317,20 @@ export async function generateFixtures(
     throw new Error('Some matches already have recorded results, so fixtures can’t be regenerated.')
   }
 
-  let pool = shuffle(buildMatchPool(confirmedPlayerIds, tournament.type))
-  if (maxMatchesPerPlayer) pool = capMatchesPerPlayer(pool, maxMatchesPerPlayer)
+  let pool: Candidate[]
+  if (exactMatchesPerPlayer) {
+    const exact = exactMatchPool(confirmedPlayerIds, tournament.type, exactMatchesPerPlayer)
+    if (!exact) {
+      const suggestions = suggestAchievableExactCounts(confirmedPlayerIds, tournament.type, exactMatchesPerPlayer)
+      const suggestionText = suggestions.length > 0 ? ` Try: ${suggestions.join(', ')}.` : ''
+      throw new Error(
+        `Can't give every one of the ${confirmedPlayerIds.length} confirmed players exactly ${exactMatchesPerPlayer} matches.${suggestionText}`,
+      )
+    }
+    pool = exact
+  } else {
+    pool = shuffle(buildMatchPool(confirmedPlayerIds, tournament.type))
+  }
   const scheduled = scheduleCourts(pool, tournament.courtIds)
 
   const batch = writeBatch(db)
